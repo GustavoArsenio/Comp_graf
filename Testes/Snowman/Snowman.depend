@@ -1,0 +1,21 @@
+# depslib dependency file v1.0
+1590695896 source:d:\projetos_git\comp_graf\arquivos do professor\glu-20180915t191907z-001\mainsnowman.cpp
+	<windows.h>
+	<math.h>
+	<GLUT/glut.h>
+	<GL/glut.h>
+	<stdlib.h>
+
+1590695634 d:\projetos_git\comp_graf\glu\include\gl\glut.h
+	<windows.h>
+	<windows.h>
+	<GL/gl.h>
+	<GL/glu.h>
+
+1590695896 source:d:\projetos_git\comp_graf\testes\snowman\mainsnowman.cpp
+	<windows.h>
+	<math.h>
+	<GLUT/glut.h>
+	<GL/glut.h>
+	<stdlib.h>
+
