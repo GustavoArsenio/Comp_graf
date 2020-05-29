@@ -12,9 +12,10 @@
 	<GL/gl.h>
 	<GL/glu.h>
 
-1590695896 source:d:\projetos_git\comp_graf\testes\snowman\mainsnowman.cpp
+1590702690 source:d:\projetos_git\comp_graf\testes\snowman\mainsnowman.cpp
 	<windows.h>
 	<math.h>
+	<time.h>
 	<GLUT/glut.h>
 	<GL/glut.h>
 	<stdlib.h>
