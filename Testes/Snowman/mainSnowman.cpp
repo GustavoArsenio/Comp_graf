@@ -132,18 +132,36 @@ static void key(unsigned char key, int x, int y)
 			// z += lz * fraction;
 			x += lx;
 			z += lz;
+			x_global += lx;
 			break;
 		case 's' :
 			// x -= lx * fraction;
 			// z -= lz * fraction;
-			// x -= lx;
+			x -= lx;
 			z -= lz;
+			x_global -= lx;
 			break;
         case 'd':
-            x_global += 1.0f;
+            if (angle == 0.0f) {
+                x += cos(angle);
+                x_global += cos(angle);
+                z += -sin(angle);
+			}else{
+                x -= cos(angle);
+                x_global -= cos(angle);
+                z -= -sin(angle);
+			};
 			break;
         case 'a':
-            x_global -= 1.0f;
+            if (angle == 0.0f) {
+                x -= cos(angle);
+                x_global -= cos(angle);
+                z -= -sin(angle);
+			}else{
+                x += cos(angle);
+                x_global += cos(angle);
+                z += -sin(angle);
+			};
 			break;
         case 't':
             // Up
