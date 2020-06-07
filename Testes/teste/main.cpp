@@ -1,5 +1,7 @@
 //http://www.lighthouse3d.com/tutorials/glut-tutorial/keyboard-example-moving-around-the-world/
 
+
+
 /*
  * GLUT Shapes Demo
  *
@@ -32,10 +34,14 @@ static int slices = 16;
 static int stacks = 16;
 GLuint idTextura;
 
-// Mouse CFGS
-int xOrigin=-1;
+// Mouse Configs
+
 float deltaAngle = 0.0f;
+float deltaAngle2 = 0.0f;
 float deltaMove = 0;
+int xOrigin = -1;
+int yOrigin = -1;
+float angle2 = 0.0f;
 
 float switch_maps=0;
 
@@ -202,8 +208,14 @@ float mod (float num){
     };
 };
 
+/////////////////////////////////////
+//                                 //
+//              MAPA               //
+//                                 //
+/////////////////////////////////////
 
 static int raw_map_x=40,raw_map_z=120;
+
 static int raw_map[40][120]={
                                 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
                                 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -250,15 +262,14 @@ static int raw_map[40][120]={
 static float size_column = 5.0f;
 /* GLUT callback Handlers */
 // angle of rotation for the camera direction
-float angle=0.0,angle_y=0.0f;
+float angle=0.0f,angle_y=0.0f;
 // actual vector representing the camera's direction
-float lx=0.0f,lz=-1.0f,ly=1.0f;
+float lx=0.64f,lz=-0.76f,ly=0.0f;
 // XZ position of the camera
 float x_global=0.0f,z=0.0f, y_global=1.5f;
 
-// GHS FUNC adataçao
+// GHS FUNC adptaçao
 void drawCube() {
-	glColor3f(1.0f, 0.0f, 1.0f);
     glBegin ( GL_QUADS );
 		// Face frontal
 	    glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2,  size_column/2     );
@@ -313,7 +324,7 @@ void drawMap() {
             for(int j = 0; j < raw_map_z; j++) {
                 if(raw_map[i][j] == 1){
                     glPushMatrix();
-                    glTranslatef(j * size_column,size_column/2,i * size_column);
+                    glTranslatef(j * size_column,size_column/3,i * size_column);
                     drawCube();
                     glPopMatrix();
                 }
@@ -327,37 +338,6 @@ void drawMap() {
         draw_map_by_colision(topo_lista->inicio);
     }
 }
-
-// GHS FUNC
-void DefineIluminacao (void)
-{
-	GLfloat luzAmbiente[4]={0.2,0.2,0.2,1.0};
-	GLfloat luzDifusa[4]={0.7,0.7,0.7,1.0};	   // "cor"
-	GLfloat luzEspecular[4]={1.0, 1.0, 1.0, 1.0};// "brilho"
-	GLfloat posicaoLuz[4]={0.0, -40.0, 0.0, 1.0};
-
-	// Capacidade de brilho do material
-	GLfloat especularidade[4]={1.0,1.0,1.0,1.0};
-	GLint especMaterial = 60;
-
-	// Define a reflet�ncia do material
-	glMaterialfv(GL_FRONT,GL_SPECULAR, especularidade);
-	// Define a concentra��o do brilho
-	glMateriali(GL_FRONT,GL_SHININESS,especMaterial);
-
-	// Ativa o uso da luz ambiente
-	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, luzAmbiente);
-
-	// Define os par�metros da luz de n�mero 0
-	glLightfv(GL_LIGHT0, GL_AMBIENT, luzAmbiente);
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, luzDifusa );
-	glLightfv(GL_LIGHT0, GL_SPECULAR, luzEspecular );
-	glLightfv(GL_LIGHT0, GL_POSITION, posicaoLuz );
-
-	// Habilita o modelo de coloriza��o de Gouraud
-	glShadeModel(GL_SMOOTH);
-}
-
 
 static void resize(int width, int height)
 {
@@ -383,7 +363,7 @@ static void display(void)
 	glLoadIdentity();
 	// Set the camera
 	gluLookAt(	x_global, y_global, z,
-                x_global+lx, y_global,  z+lz,
+                x_global+lx, y_global+ly,  z+lz,
                 0.0f, y_global,  0.0f);
 
         // Draw ground
@@ -467,7 +447,7 @@ void Inicializa (void)
 	// observador virtual
 
 
-	idTextura = LoadTexture("D:\\projetos_git\\Comp_graf\\Testes\\teste\\tijolos.bmp",128,128);
+	idTextura = LoadTexture("C:\\Users\\gustavo.silva\\OneDrive\\tijolos.bmp",128,128);
 
 	glBindTexture(GL_TEXTURE_2D, idTextura);
 
@@ -486,14 +466,17 @@ void Inicializa (void)
 static void key(unsigned char key, int x, int y)
 {
 
-	float fraction = 0.1f;
+float fraction = 0.1f;
+//      //Posições
+//printf("\n===========================\n         POSICOES TECLADO\ny_global= %f\nx_global= %f\nz = %f\n",y_global,x_global,z);
+//            printf("\n***************************\n         CAMERA TECLADO\nly= %f\nlx = %f\nlz = %f\n",ly,lx,lz);
 	switch (key) {// Função Teclas
-		case 'a' ://Camera para Esquerda
+		case 'q' ://Camera para Esquerda
 			angle -= 0.05f;
 			lx = sin(angle);
 			lz = -cos(angle);
 			break;
-		case 'd' ://Camera para Direita
+		case 'e' ://Camera para Direita
 			angle += 0.05f;
 			lx = sin(angle);
 			lz = -cos(angle);
@@ -508,11 +491,34 @@ static void key(unsigned char key, int x, int y)
 			z -= lz;
 			x_global -= lx;
 			break;
-
-        case 'r':
-            y_global= 4.00f;
-            x_global= 6.74f;
-            z = 293.61f;
+        case 'd'://Move a camera para direita
+            if (angle == 0.0f) {
+                x += cos(angle);
+                x_global += cos(angle);
+                z += -sin(angle);
+			}else{
+                x -= cos(angle);
+                x_global -= cos(angle);
+                z -= -sin(angle);
+			};
+			break;
+            case 'h': deltaAngle2+=0.1f;
+            ly = sin(angle2 + deltaAngle2);
+            break;
+            case 'b': deltaAngle2 -= 0.1f;
+             ly = sin(angle2 + deltaAngle2);
+             break;
+        case 'a'://Move a camera para esquerda
+            if (angle == 0.0f) {
+                x -= cos(angle);
+                x_global -= cos(angle);
+                z -= -sin(angle);
+			}else{
+                x += cos(angle);
+                x_global += cos(angle);
+                z += -sin(angle);
+			}
+			break;
 
         case ' '://Move a camera para cima
             y_global += 1.0f;
@@ -539,13 +545,9 @@ static void key(unsigned char key, int x, int y)
             x_global = 55.55f;
             z = 435.08f;
             break;
-        case 'b':
-            angle_y += 0.05f;
-            ly -= sin(angle_y);
-            break;
-        case 'h':
-            angle_y -= 0.05f;
-            ly = -sin(angle_y);
+
+        case 'x': //fecha o jogo
+           exit(0);
             break;
         case 'k':
             if (switch_maps == 0){
@@ -555,9 +557,7 @@ static void key(unsigned char key, int x, int y)
             }
             printf("\n >>> switch_maps: %.2f ",switch_maps);
             break;
-        case 'x': //fecha o jogo
-           exit(0);
-            break;
+
 	}
 	if(hasColided(x_global,z,topo_lista->inicio,size_column) == 1){
         switch (key) {// Função Teclas
@@ -583,54 +583,50 @@ static void key(unsigned char key, int x, int y)
     }
     glutPostRedisplay();
 }
+
 /////////////////////////////////////
 //                                 //
 //             MOUSE               //
 //                                 //
 /////////////////////////////////////
-
 void mouseMove(int x, int y) {
 
-    // this will only be true when the left button is down
-         if (xOrigin >= 0) {
+	if (xOrigin >= 0 &&yOrigin>=0) {
 
-		// update deltaAngle
 		deltaAngle = (x - xOrigin) * 0.001f;
-
-		// update camera's direction
+		deltaAngle2=(y-yOrigin)* 0.001f;
 		lx = sin(angle + deltaAngle);
 		lz = -cos(angle + deltaAngle);
+		ly = -sin(angle2 + deltaAngle2);
 	}
 }
+
 void mouseButton(int button, int state, int x, int y) {
 
-	// only start motion if the left button is pressed
 	if (button == GLUT_LEFT_BUTTON) {
 
-		// when the button is released
 		if (state == GLUT_UP) {
 			angle += deltaAngle;
-			xOrigin = 1;
+			xOrigin = -1;
+			yOrigin = -1;
+			angle2 += deltaAngle2;
 		}
-		else  {// state = GLUT_DOWN
-		 xOrigin = x;
+		else {
+			xOrigin = x;
+			yOrigin = y;
 		}
 	}
 }
-static void idle(void)
-{
-    glutPostRedisplay();
-}
-
-const GLfloat light_ambient[]  = { 0.0f, 0.0f, 0.0f, 1.0f };
+// ILUMINAÇÃO
+const GLfloat light_ambient[]  = { 2.0f, 2.0f, 2.0f, 1.0f };
 const GLfloat light_diffuse[]  = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat light_position[] = { 2.0f, 5.0f, 5.0f, 0.0f };
 
-const GLfloat mat_ambient[]    = { 0.7f, 0.7f, 0.7f, 1.0f };
-const GLfloat mat_diffuse[]    = { 0.8f, 0.8f, 0.8f, 1.0f };
-const GLfloat mat_specular[]   = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat high_shininess[] = { 100.0f };
+static void idle(void)
+{
+    glutPostRedisplay();
+}
 
 int main(int argc, char *argv[])
 {
@@ -681,11 +677,6 @@ int main(int argc, char *argv[])
     glLightfv(GL_LIGHT0, GL_DIFFUSE,  light_diffuse);
     glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
     glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-
-    glMaterialfv(GL_FRONT, GL_AMBIENT,   mat_ambient);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE,   mat_diffuse);
-    glMaterialfv(GL_FRONT, GL_SPECULAR,  mat_specular);
-    glMaterialfv(GL_FRONT, GL_SHININESS, high_shininess);
 
     Inicializa();
 
