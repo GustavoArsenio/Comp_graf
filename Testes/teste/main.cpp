@@ -30,16 +30,19 @@
 
 static int slices = 16;
 static int stacks = 16;
-static int raw_map_x=33,raw_map_z=100;
+GLuint idTextura;
+
 // Mouse CFGS
 int xOrigin=-1;
 float deltaAngle = 0.0f;
 float deltaMove = 0;
-//----------------
+
+float switch_maps=0;
+
+//---------------- Estruturas para colisão ----------------//
 struct LISTA{
 	struct LISTA *anterior;
-	int x1,y1,z1;
-	int x2,y2,z2;
+	float x,y,z;
 	struct LISTA *proximo;
 };
 
@@ -47,19 +50,54 @@ struct topoLista{
 	struct LISTA *inicio;
 };
 
+struct topoLista * topo_lista;
+
+//---------------- Metodos para monipulação das estruturas de colisão ----------------//
+int isIn(float x,float y,struct LISTA *cubo,float size_column){
+    /*
+        isIn é uma função que valida se o x,y informado está dentro do cubo
+    */
+
+
+    int isInX=0,isInY=0;
+    // Definir em X
+    isInX = (cubo->x+3+size_column/2 >= x && x >= cubo->x-(3+size_column/2));
+
+    // Definir em Y
+    isInY = (cubo->z+3+size_column/2 >= y && y >= cubo->z-(3+size_column/2));
+
+    return (isInX == 1 && 1 == isInY);
+};
+int hasColided(float x,float z,struct LISTA *cubo,float size_column){
+    if ( cubo->proximo == NULL ){
+        return 0;
+    }else if( isIn( x, z, cubo, size_column ) == 1){
+        printf("\n#=======================================#\n");
+        printf("# EM X: %.2f,%.2f,%.2f\n", cubo->x,x,cubo->x);
+        printf("# EM Y: %.2f,%.2f,%.2f\n", cubo->z,z,cubo->z);
+        printf("#=======================================#\n");
+
+        return 1;
+    }else{
+        return hasColided( x, z, cubo->proximo, size_column);
+    }
+}
+
 void show(struct LISTA *lista){
 	/*
-		Fun��o Show Recebe o valor do topo da "LISTA" e recursivamente printa todos os valores at� a base da pilha,
-		Isso se deve ao ponteiro de pr�ximo item estar NULL,
+		Função Show Recebe o valor do topo da "LISTA" e recursivamente printa todos os valores até a base da pilha,
+		Isso se deve ao ponteiro de próximo item estar NULL,
 	*/
 	if (lista->anterior==NULL)
 	{
 		printf("Estrutura: \n");
 	}
+	/*
 	printf("#=======================================#\n");
-	printf("# x1:%d,y1:%d,z1:%d\n", lista->x1,lista->y1,lista->z1);
-	printf("# x2:%d,y2:%d,z2:%d\n", lista->x2,lista->y2,lista->z2);
+	printf("# x1:%.2f,y1:%.2f,z1:%.2f\n", lista->x1,lista->y1,lista->z1);
+	printf("# x2:%.2f,y2:%.2f,z2:%.2f\n", lista->x2,lista->y2,lista->z2);
 	printf("#=======================================#\n");
+	*/
 	if (lista->proximo != NULL)
 	{
 		show(lista->proximo);
@@ -68,19 +106,21 @@ void show(struct LISTA *lista){
 };
 struct LISTA *alocar(int tamanho){
 	/*
-		Retorna o espa�o de mem�ria do tamanho da struct "LISTA", basta passar como tamanho = 1;
+		Retorna o espaço de memória do tamanho da struct "LISTA", basta passar como tamanho = 1;
 	*/
 	return ( (struct LISTA *) malloc(sizeof(struct LISTA) * tamanho) );
 };
 int comparar(struct LISTA *lista_original,struct LISTA *lista_de_parametros){
+    /*
     if((lista_original->x1<=lista_original->x1<=lista_original->x2) && (lista_original->y1<=lista_original->y1<=lista_original->y2))
         return 1;
     else
-            return 0;
+    */
+        return 0;
 
 };
 
-void empilha(int x1,int y1,int z1, int x2, int y2, int z2,struct topoLista *varTopo){
+void empilha(float x,float y,float z,struct topoLista *varTopo){
 	/*
 		Recebe o ponteiro que indica o topo da Lista e inserer o item no topo, tal qual ilustrado abaixo:
 			|Topo|-> NULL
@@ -91,12 +131,9 @@ void empilha(int x1,int y1,int z1, int x2, int y2, int z2,struct topoLista *varT
 		As setas indicam o ponteiro de "anterior" e "proximo" da struct "LISTA"
 	*/
 	struct LISTA *temporaria =  alocar(1);
-	temporaria->x1 = x1;
-    temporaria->y1 = y1;
-    temporaria->z1 = z1;
-    temporaria->x2 = x2;
-    temporaria->y2 = y2;
-    temporaria->z2 = z2;
+	temporaria->x = x;
+    temporaria->y = y;
+    temporaria->z = z;
 	temporaria->proximo = NULL;
 	temporaria->anterior=NULL;
 	if (varTopo->inicio != NULL)
@@ -140,19 +177,21 @@ struct LISTA *desempilha(struct topoLista *varTopo){
 	return temporaria;
 };
 struct topoLista *initTopo(struct topoLista *p){
-	// Retorna o espa�o de mem�ria da struct "topoLista"
+	// Retorna o espaço de memória da struct "topoLista"
 	p = (struct topoLista *) malloc(sizeof(struct topoLista));
 	p->inicio = NULL;
 	return p;
 };
 void finalizarLista(struct LISTA *lista){
-	// Libera a mem�ria de todos os itens na pilha
+	// Libera a memória de todos os itens na pilha
 	if (lista->proximo != NULL && lista != NULL)
 	{
 		finalizarLista(lista->proximo);
 		free(lista);
 	}
 };
+
+// -------------------------- FIM BLOCO DE ESTUTURAS PARA COLISAO --------------------------//
 
 
 float mod (float num){
@@ -162,46 +201,54 @@ float mod (float num){
             return num;
     };
 };
-static int raw_map[33][100]={
-                                {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1},
-                                {1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1},
-                                {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1},
-                                {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1},
-                                {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
 
-};
+
+static int raw_map_x=40,raw_map_z=120;
+static int raw_map[40][120]={
+                                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,0,1,1,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,1,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,1,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,1,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,1,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
+                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0},
+                                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+                            };
+// Definição para tamanho de cada bloco no mapa
 static float size_column = 5.0f;
 /* GLUT callback Handlers */
-
-
 // angle of rotation for the camera direction
 float angle=0.0,angle_y=0.0f;
 // actual vector representing the camera's direction
@@ -209,32 +256,109 @@ float lx=0.0f,lz=-1.0f,ly=1.0f;
 // XZ position of the camera
 float x_global=0.0f,z=0.0f, y_global=1.5f;
 
+// GHS FUNC adataçao
 void drawCube() {
-
 	glColor3f(1.0f, 0.0f, 1.0f);
-
-// Draw Body
-	glTranslatef(0.0f ,0.75f, 0.0f);
-	glutSolidCube(size_column);
+    glBegin ( GL_QUADS );
+		// Face frontal
+	    glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2,  size_column/2     );
+		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2,  size_column/2     );
+		glTexCoord2f(size_column/2, size_column/2); glVertex3f(     size_column/2,      size_column/2,  size_column/2     );
+		glTexCoord2f(0.0f         , size_column/2); glVertex3f(-1 * size_column/2,      size_column/2,  size_column/2     );
+		// Face posterior
+		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2, -1 * size_column/2 );
+		glTexCoord2f(size_column/2, size_column/2); glVertex3f(-1 * size_column/2,      size_column/2, -1 * size_column/2 );
+		glTexCoord2f(0.0f         , size_column/2); glVertex3f(     size_column/2,      size_column/2, -1 * size_column/2 );
+		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2, -1 * size_column/2 );
+		// Face superior
+		glTexCoord2f(0.0f         , size_column/2); glVertex3f(-1 * size_column/2,  size_column/2, -1 * size_column/2     );
+		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(-1 * size_column/2,  size_column/2,      size_column/2     );
+		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(     size_column/2,  size_column/2,      size_column/2     );
+		glTexCoord2f(size_column/2, size_column/2); glVertex3f(     size_column/2,  size_column/2, -1 * size_column/2     );
+		// Face inferior
+		glTexCoord2f(size_column/2, size_column/2); glVertex3f(-1 * size_column/2, -1 * size_column/2, -1 * size_column/2 );
+		glTexCoord2f(0.0f         , size_column/2); glVertex3f(     size_column/2, -1 * size_column/2, -1 * size_column/2 );
+		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2,      size_column/2 );
+		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2,      size_column/2 );
+		// Face lateral direita
+		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2, -1 * size_column/2 );
+		glTexCoord2f(size_column/2, size_column/2); glVertex3f(     size_column/2,      size_column/2, -1 * size_column/2 );
+		glTexCoord2f(0.0f         , size_column/2); glVertex3f(     size_column/2,      size_column/2,      size_column/2 );
+		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2,      size_column/2 );
+		// Face lateral esquerda
+		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2, -1 * size_column/2 );
+		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2,      size_column/2 );
+		glTexCoord2f(size_column/2, size_column/2); glVertex3f(-1 * size_column/2,      size_column/2,      size_column/2 );
+		glTexCoord2f(0.0f         , size_column/2); glVertex3f(-1 * size_column/2,      size_column/2, -1 * size_column/2 );
+	glEnd();
 
 }
-
+//-------------------------- VISUALIZAR BLOCOS PARA COLISAO --------------------------//
+void draw_map_by_colision(struct LISTA * cubo){
+    struct LISTA * new_cubo = cubo;
+    int position = 1;
+    do{
+                    glPushMatrix();
+                    glTranslatef(new_cubo->x,new_cubo->y,new_cubo->z);
+                    glColor3f(1.0f, 1.0f, 1.0f);
+                    glutSolidCube(size_column);
+                    glPopMatrix();
+                    new_cubo = new_cubo->proximo;
+    }while(new_cubo != NULL);
+	glEnd();
+}
 void drawMap() {
-    for(int i = 0; i < raw_map_x; i++)
-		for(int j = 0; j < raw_map_z; j++) {
-            if(raw_map[i][j] == 1){
-                glPushMatrix();
-                glTranslatef(i*size_column,size_column/3,j * size_column);
-                drawCube();
-                glPopMatrix();
+    if(switch_maps == 1){
+        for(int i = 0; i < raw_map_x; i++)
+            for(int j = 0; j < raw_map_z; j++) {
+                if(raw_map[i][j] == 1){
+                    glPushMatrix();
+                    glTranslatef(j * size_column,size_column/2,i * size_column);
+                    drawCube();
+                    glPopMatrix();
+                }
             }
-                glPushMatrix();
-                glTranslatef(i*size_column,size_column*3,j * size_column);
-                glColor3f(0.0f, 1.0f, 1.0f);
-                drawCube();
-                glPopMatrix();
+            // //Constroi  Teto
+            //    glPushMatrix();
+            //    glTranslatef(i*size_column,size_column*6,j * size_column);
+            //    drawCube();
+            //    glPopMatrix();
+    }else{
+        draw_map_by_colision(topo_lista->inicio);
     }
 }
+
+// GHS FUNC
+void DefineIluminacao (void)
+{
+	GLfloat luzAmbiente[4]={0.2,0.2,0.2,1.0};
+	GLfloat luzDifusa[4]={0.7,0.7,0.7,1.0};	   // "cor"
+	GLfloat luzEspecular[4]={1.0, 1.0, 1.0, 1.0};// "brilho"
+	GLfloat posicaoLuz[4]={0.0, -40.0, 0.0, 1.0};
+
+	// Capacidade de brilho do material
+	GLfloat especularidade[4]={1.0,1.0,1.0,1.0};
+	GLint especMaterial = 60;
+
+	// Define a reflet�ncia do material
+	glMaterialfv(GL_FRONT,GL_SPECULAR, especularidade);
+	// Define a concentra��o do brilho
+	glMateriali(GL_FRONT,GL_SHININESS,especMaterial);
+
+	// Ativa o uso da luz ambiente
+	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, luzAmbiente);
+
+	// Define os par�metros da luz de n�mero 0
+	glLightfv(GL_LIGHT0, GL_AMBIENT, luzAmbiente);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, luzDifusa );
+	glLightfv(GL_LIGHT0, GL_SPECULAR, luzEspecular );
+	glLightfv(GL_LIGHT0, GL_POSITION, posicaoLuz );
+
+	// Habilita o modelo de coloriza��o de Gouraud
+	glShadeModel(GL_SMOOTH);
+}
+
+
 static void resize(int width, int height)
 {
     const float ar = (float) width / (float) height;
@@ -265,10 +389,10 @@ static void display(void)
         // Draw ground
 	glColor3f(0.9f, 0.9f, 0.9f);
 	glBegin(GL_QUADS);
-		glVertex3f(    0 * size_column * raw_map_x, 0.0f,  0 * size_column *  raw_map_z     );
-		glVertex3f(    0 * size_column * raw_map_x, 0.0f,      size_column * (raw_map_z + 1));
-		glVertex3f(  size_column * (raw_map_x + 1), 0.0f,      size_column * (raw_map_z + 1));
-		glVertex3f(  size_column * (raw_map_x + 1), 0.0f,  0 * size_column *  raw_map_z     );
+		glVertex3f(    0 * size_column * raw_map_x, 0,  0 * size_column *  raw_map_z     );
+		glVertex3f(    0 * size_column * raw_map_x, 0,      size_column * (raw_map_z + 4));
+		glVertex3f(  size_column * (raw_map_x + 4), 0,      size_column * (raw_map_z + 4));
+		glVertex3f(  size_column * (raw_map_x + 4), 0,  0 * size_column *  raw_map_z     );
 	glEnd();
     drawMap();
 
@@ -278,110 +402,196 @@ static void display(void)
 
 }
 
+
+/////////////////////////////////////
+//                                 //
+//            TEXTURA              //
+//                                 //
+/////////////////////////////////////
+// GHS FUNC
+GLuint LoadTexture(const char * filename, int width, int height) {
+
+	GLuint texture;
+	unsigned char * data;
+
+	FILE * file;
+	file = fopen( filename, "rb" );
+	if ( file == NULL ) return 0;
+	data = (unsigned char *)malloc( width * height * 3 );
+	//int size = fseek(file,);
+	fread( data, width * height * 3, 1, file );
+	fclose( file );
+
+	for(int i = 0; i < width * height ; ++i) {
+		int index = i*3;
+		unsigned char B,R;
+		B = data[index];
+		R = data[index+2];
+
+		data[index] = R;
+		data[index+2] = B;
+	}
+
+	glGenTextures( 1, &texture );
+	glBindTexture( GL_TEXTURE_2D, texture );
+	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,GL_MODULATE );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_NEAREST );
+
+
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_LINEAR );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,GL_REPEAT );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,GL_REPEAT );
+	gluBuild2DMipmaps( GL_TEXTURE_2D, 3, width, height,GL_RGB, GL_UNSIGNED_BYTE, data );
+	free( data );
+
+	return texture;
+}
+// GHS FUNC
+void Inicializa (void)
+{
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	// Habilita a defini��o da cor do material a partir da cor corrente
+	glEnable(GL_COLOR_MATERIAL);
+	//Habilita o uso de ilumina��o
+	glEnable(GL_LIGHTING);
+	// Habilita a luz de n�mero 0
+	glEnable(GL_LIGHT0);
+	// Habilita o depth-buffering
+	glEnable(GL_DEPTH_TEST);
+
+	// Inicializa a vari�vel que especifica o �ngulo da proje��o
+	// perspectiva
+	angle=50;
+
+	// Inicializa as vari�veis usadas para alterar a posi��o do
+	// observador virtual
+
+
+	idTextura = LoadTexture("D:\\projetos_git\\Comp_graf\\Testes\\teste\\tijolos.bmp",128,128);
+
+	glBindTexture(GL_TEXTURE_2D, idTextura);
+
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+	glEnable(GL_TEXTURE_2D);
+}
+
+
+/////////////////////////////////////
+//                                 //
+//            TECLADO              //
+//                                 //
+/////////////////////////////////////
+
 static void key(unsigned char key, int x, int y)
 {
-	float fraction = 0.1f;
 
-	switch (key) {
-		case 'q' :
+	float fraction = 0.1f;
+	switch (key) {// Função Teclas
+		case 'a' ://Camera para Esquerda
 			angle -= 0.05f;
 			lx = sin(angle);
 			lz = -cos(angle);
 			break;
-		case 'e' :
+		case 'd' ://Camera para Direita
 			angle += 0.05f;
 			lx = sin(angle);
 			lz = -cos(angle);
 			break;
-		case 'w' :
-			// x += lx * fraction;
-			// z += lz * fraction;
+		case 'w' ://Move a camera para frente
 			x += lx;
 			z += lz;
 			x_global += lx;
 			break;
-		case 's' :
-			// x -= lx * fraction;
-			// z -= lz * fraction;
+		case 's' ://Move a camera para tras
 			x -= lx;
 			z -= lz;
 			x_global -= lx;
 			break;
-        case 'd':
-            if (angle == 0.0f) {
-                x += cos(angle);
-                x_global += cos(angle);
-                z += -sin(angle);
-			}else{
-                x -= cos(angle);
-                x_global -= cos(angle);
-                z -= -sin(angle);
-			};
-			break;
-        case 'a':
-            if (angle == 0.0f) {
-                x -= cos(angle);
-                x_global -= cos(angle);
-                z -= -sin(angle);
-			}else{
-                x += cos(angle);
-                x_global += cos(angle);
-                z += -sin(angle);
-			};
-			break;
+
         case 'r':
-            y_global = 11.0f;
-            x_global = 50.0f;
-            z = 50.0f;
-        case ' ':
-            // Up
+            y_global= 4.00f;
+            x_global= 6.74f;
+            z = 293.61f;
+
+        case ' '://Move a camera para cima
             y_global += 1.0f;
             break;
-        case 'f':
-            // down
-             if (y_global >= 1.5f)
-                y_global -= 1.0f;
+
+        case 'f'://Move a camera para baixo
+             if (y_global >= 2.0f)
+                 y_global -= 1.0f;
+            break;
+
+        case 'i':// seta para inicio mapa
+                y_global= 4.00f;
+                x_global= 6.74f;
+                z = 293.61f;
+            break;
+
+        case 'o':// seta para Fim mapa
+            y_global= 4.00f;
+            x_global= 190.34f;
+            z = 412.54f;
+            break;
+        case 'p':// seta para ponto "aleatorio" do mapa
+            y_global = 20.0f;
+            x_global = 55.55f;
+            z = 435.08f;
             break;
         case 'b':
             angle_y += 0.05f;
             ly -= sin(angle_y);
             break;
         case 'h':
-
-                angle_y -= 0.05f;
-                ly = -sin(angle_y);
-
+            angle_y -= 0.05f;
+            ly = -sin(angle_y);
             break;
-        case 'x':
+        case 'k':
+            if (switch_maps == 0){
+                switch_maps = 1;
+            }else{
+                switch_maps = 0;
+            }
+            printf("\n >>> switch_maps: %.2f ",switch_maps);
+            break;
+        case 'x': //fecha o jogo
            exit(0);
             break;
 	}
+	if(hasColided(x_global,z,topo_lista->inicio,size_column) == 1){
+        switch (key) {// Função Teclas
 
+		case 'w' ://Move a camera para frente
+			x -= lx;
+			z -= lz;
+			x_global -= lx;
+			break;
+		case 's' ://Move a camera para tras
+			x += lx;
+			z += lz;
+			x_global += lx;
+			break;
+        case ' '://Move a camera para cima
+            y_global -= 1.0f;
+            break;
+
+        case 'f'://Move a camera para baixo
+                 y_global += 1.0f;
+            break;
+        }
+    }
     glutPostRedisplay();
 }
-
-static void idle(void)
-{
-    glutPostRedisplay();
-}
-
-const GLfloat light_ambient[]  = { 0.0f, 0.0f, 0.0f, 1.0f };
-const GLfloat light_diffuse[]  = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat light_position[] = { 2.0f, 5.0f, 5.0f, 0.0f };
-
-const GLfloat mat_ambient[]    = { 0.7f, 0.7f, 0.7f, 1.0f };
-const GLfloat mat_diffuse[]    = { 0.8f, 0.8f, 0.8f, 1.0f };
-const GLfloat mat_specular[]   = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat high_shininess[] = { 100.0f };
-
-/* Program entry point */
-
-struct topoLista * topo_lista;
+/////////////////////////////////////
+//                                 //
+//             MOUSE               //
+//                                 //
+/////////////////////////////////////
 
 void mouseMove(int x, int y) {
 
-         // this will only be true when the left button is down
+    // this will only be true when the left button is down
          if (xOrigin >= 0) {
 
 		// update deltaAngle
@@ -400,13 +610,27 @@ void mouseButton(int button, int state, int x, int y) {
 		// when the button is released
 		if (state == GLUT_UP) {
 			angle += deltaAngle;
-			xOrigin = -1;
+			xOrigin = 1;
 		}
 		else  {// state = GLUT_DOWN
-			xOrigin = x;
+		 xOrigin = x;
 		}
 	}
 }
+static void idle(void)
+{
+    glutPostRedisplay();
+}
+
+const GLfloat light_ambient[]  = { 0.0f, 0.0f, 0.0f, 1.0f };
+const GLfloat light_diffuse[]  = { 1.0f, 1.0f, 1.0f, 1.0f };
+const GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+const GLfloat light_position[] = { 2.0f, 5.0f, 5.0f, 0.0f };
+
+const GLfloat mat_ambient[]    = { 0.7f, 0.7f, 0.7f, 1.0f };
+const GLfloat mat_diffuse[]    = { 0.8f, 0.8f, 0.8f, 1.0f };
+const GLfloat mat_specular[]   = { 1.0f, 1.0f, 1.0f, 1.0f };
+const GLfloat high_shininess[] = { 100.0f };
 
 int main(int argc, char *argv[])
 {
@@ -415,14 +639,13 @@ int main(int argc, char *argv[])
 		for(int j = 0; j < raw_map_z; j++) {
             if(raw_map[i][j] == 1){
                 empilha(
-                            i*size_column + 10,size_column/3,j * size_column + 10,
-                            i*size_column - 10,2*(size_column/3),j * size_column - 10,
+                            j * size_column, size_column/2, i * size_column,
                             topo_lista
                         );
             }
 
         }
-        show(topo_lista->inicio);
+        //show(topo_lista->inicio);
 
 
 
@@ -431,7 +654,7 @@ int main(int argc, char *argv[])
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(100,100);
 	glutInitWindowSize(1000,700);
-	glutCreateWindow("Lighthouse3D - GLUT Tutorial");
+	glutCreateWindow("Labrinto");
     //glutFullScreen();
 
     glutReshapeFunc(resize);
@@ -464,7 +687,8 @@ int main(int argc, char *argv[])
     glMaterialfv(GL_FRONT, GL_SPECULAR,  mat_specular);
     glMaterialfv(GL_FRONT, GL_SHININESS, high_shininess);
 
-    glutMainLoop();
+    Inicializa();
 
+    glutMainLoop();
     return EXIT_SUCCESS;
 }
