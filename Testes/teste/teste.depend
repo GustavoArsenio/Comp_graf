@@ -1,14 +1,10 @@
 # depslib dependency file v1.0
-1592626921 source:d:\projetos_git\comp_graf\testes\teste\main.cpp
-	<windows.h>
-	<math.h>
-	<time.h>
-	<GLUT/glut.h>
-	<GL/glut.h>
-	<math.h>
-	<stdlib.h>
+1592629911 source:d:\projetos_git\comp_graf\testes\teste\main.cpp
 	<stdio.h>
-	<stddef.h>
+	<GL/glut.h>
+	<stdlib.h>
+	<math.h>
+	<locale.h>
 
 1590695634 d:\projetos_git\comp_graf\glu\include\gl\glut.h
 	<windows.h>

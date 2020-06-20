@@ -1,688 +1,506 @@
-//http://www.lighthouse3d.com/tutorials/glut-tutorial/keyboard-example-moving-around-the-world/
+                                              /*   UNIVERSIDADE FEDERAL DA GRANDE DOURADOS - UFGD
+                                                   FACULDADES DE CIENCIAS EXATAS E TECNOLOGIA - FACET
+                                                               ENGENHARIA DE COMPUTACAO
+                                                                 COMPUTACAO GRAFICA
+
+                                                            ALUNO: NICOLAS PIERIM PEREIRA                                         */
 
 
 
-/*
- * GLUT Shapes Demo
- *
- * Written by Nigel Stewart November 2003
- *
- * This program is test harness for the sphere, cone
- * and torus shapes in GLUT.
- *
- * Spinning wireframe and smooth shaded shapes are
- * displayed until the ESC or q key is pressed.  The
- * number of geometry stacks and slices can be adjusted
- * using the + and - keys.
- */
-#include <windows.h>
-#include <math.h>
-#include <time.h>
+// BIBLIOTECAS
 
-#ifdef __APPLE__
-#include <GLUT/glut.h>
-#else
-#include <GL/glut.h>
-#endif
-
-#include <math.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <stddef.h>
+#include <GL/glut.h>
+#include <stdlib.h>
+#include <math.h>
+#include <locale.h>
+#define PI 3.141592653589
 
-static int slices = 16;
-static int stacks = 16;
+GLfloat roda_z=40.0; // CAMERAS DOS EIXOS
+GLfloat roda_x=0.0; // CAMERAS DOS EIXOS
+GLfloat roda_y=40.0; // CAMERAS DOS EIXOS
 GLuint idTextura;
 
-// Mouse Configs
+GLfloat antebraco=0.0, braco=0.0, cabeca=0.0,pernaesquerda = 70.0, pernadireita = 0.0,
+joelhoesquerdo = -70.0, joelhodireito = 0.0, ladobracodireito = 0.0, ladobracoesquerdo = 0.0,
+ladodireitoperna = 0.0, ladoesquerdoperna = 0.0, ladocorpo = 0.0; // VARIAVEIS PARA CONTROLAR A QUANTIDADE DE GRAUS NA ROTACAO
 
-float deltaAngle = 0.0f;
-float deltaAngle2 = 0.0f;
-float deltaMove = 0;
-int xOrigin = -1;
-int yOrigin = -1;
-float angle2 = 0.0f;
+GLuint braco1, busto, cabeca1, perna; // VARIAVEIS PARA ALTERAR A MUDANCA DAS ROTACOES
 
-float switch_maps=0;
-
-//---------------- Estruturas para colisão ----------------//
-struct LISTA{
-	struct LISTA *anterior;
-	float x,y,z;
-	struct LISTA *proximo;
-};
-
-struct topoLista{
-	struct LISTA *inicio;
-};
-
-struct topoLista * topo_lista;
-
-//---------------- Metodos para monipulação das estruturas de colisão ----------------//
-int isIn(float x,float y, float z,struct LISTA *cubo,float size_column){
-    /*
-        isIn é uma função que valida se o x,y informado está dentro do cubo
-    */
-
-
-    int isInX=0,isInY=0,isInZ=0;
-    // Definir em X
-    isInX = (cubo->x+3+size_column/2 >= x && x >= cubo->x-(3+size_column/2));
-
-    // Definir em Y
-    isInY = (cubo->z+3+size_column/2 >= y && y >= cubo->z-(3+size_column/2));
-
-    // Definir em z
-    isInZ = (cubo->y+3+size_column/2 >= z && z >= cubo->y-(3+size_column/2));
-
-    return (isInX == 1 & 1 == isInY & isInZ ==1);
-};
-int hasColided(float x,float z,float y,struct LISTA *cubo,float size_column){
-    if ( cubo->proximo == NULL ){
-        return 0;
-    }else if( isIn( x, z, y, cubo, size_column ) == 1){
-        printf("\n#=======================================#\n");
-        printf("# EM X: %.2f,%.2f,%.2f\n", cubo->x,x,cubo->x);
-        printf("# EM Y: %.2f,%.2f,%.2f\n", cubo->z,z,cubo->z);
-        printf("#=======================================#\n");
-
-        return 1;
-    }else{
-        return hasColided( x, z, y, cubo->proximo, size_column);
-    }
-}
-
-void show(struct LISTA *lista){
-	/*
-		Função Show Recebe o valor do topo da "LISTA" e recursivamente printa todos os valores até a base da pilha,
-		Isso se deve ao ponteiro de próximo item estar NULL,
-	*/
-	if (lista->anterior==NULL)
-	{
-		printf("Estrutura: \n");
-	}
-	/*
-	printf("#=======================================#\n");
-	printf("# x1:%.2f,y1:%.2f,z1:%.2f\n", lista->x1,lista->y1,lista->z1);
-	printf("# x2:%.2f,y2:%.2f,z2:%.2f\n", lista->x2,lista->y2,lista->z2);
-	printf("#=======================================#\n");
-	*/
-	if (lista->proximo != NULL)
-	{
-		show(lista->proximo);
-		printf("\n\n");
-	}
-};
-struct LISTA *alocar(int tamanho){
-	/*
-		Retorna o espaço de memória do tamanho da struct "LISTA", basta passar como tamanho = 1;
-	*/
-	return ( (struct LISTA *) malloc(sizeof(struct LISTA) * tamanho) );
-};
-int comparar(struct LISTA *lista_original,struct LISTA *lista_de_parametros){
-    /*
-    if((lista_original->x1<=lista_original->x1<=lista_original->x2) && (lista_original->y1<=lista_original->y1<=lista_original->y2))
-        return 1;
-    else
-    */
-        return 0;
-
-};
-
-void empilha(float x,float y,float z,struct topoLista *varTopo){
-	/*
-		Recebe o ponteiro que indica o topo da Lista e inserer o item no topo, tal qual ilustrado abaixo:
-			|Topo|-> NULL
-			|Topo|->|Item1|
-			|Topo|->|Item2|<->|Item1|
-			|Topo|->|Item3|<->|Item2|<->|Item1|
-		As setas indicam o ponteiro de "anterior" e "proximo" da struct "LISTA"
-	*/
-	struct LISTA *temporaria =  alocar(1);
-	temporaria->x = x;
-    temporaria->y = y;
-    temporaria->z = z;
-	temporaria->proximo = NULL;
-	temporaria->anterior=NULL;
-	if (varTopo->inicio != NULL)
-	{
-		temporaria->proximo=alocar(1);
-		temporaria->proximo=varTopo->inicio;
-		varTopo->inicio->anterior = alocar(1);
-		varTopo->inicio->anterior = temporaria;
-	}else{
-		varTopo->inicio = alocar(1);
-	}
-	varTopo->inicio = temporaria;
-};
-struct LISTA *topo(struct topoLista *varTopo){
-	/*
-		Ao receber ponteiro de topo, o mesmo retorna a struct "LISTA" no topo
-	*/
-	return varTopo->inicio;
-};
-struct LISTA *desempilha(struct topoLista *varTopo){
-	/*
-		Recebe o ponteiro que indica o topo da Lista e inserer o item no topo, tal qual ilustrado abaixo:
-			|Topo|->|Item3|<->|Item2|<->|Item1|
-			|Topo|->|Item2|<->|Item1|
-			|Topo|->|Item1|
-			|Topo|-> NULL
-		As setas indicam o ponteiro de "anterior" e "proximo" da struct "LISTA"
-		Retorna a struct "LISTA" removida
-	*/
-	struct LISTA *temporaria =  alocar(1);
-	temporaria = varTopo->inicio;
-	varTopo->inicio = varTopo->inicio->proximo;
-	if(temporaria->proximo!=NULL){
-		temporaria->proximo->anterior = NULL;
-		temporaria->proximo = NULL;
-		temporaria->anterior = NULL;
-	}else{
-		free(varTopo->inicio);
-		varTopo->inicio=NULL;
-	}
-	return temporaria;
-};
-struct topoLista *initTopo(struct topoLista *p){
-	// Retorna o espaço de memória da struct "topoLista"
-	p = (struct topoLista *) malloc(sizeof(struct topoLista));
-	p->inicio = NULL;
-	return p;
-};
-void finalizarLista(struct LISTA *lista){
-	// Libera a memória de todos os itens na pilha
-	if (lista->proximo != NULL && lista != NULL)
-	{
-		finalizarLista(lista->proximo);
-		free(lista);
-	}
-};
-
-// -------------------------- FIM BLOCO DE ESTUTURAS PARA COLISAO --------------------------//
-
-
-float mod (float num){
-    if (num < 0){
-            return num * -1;
-    }else{
-            return num;
-    };
-};
-
-/////////////////////////////////////
-//                                 //
-//              MAPA               //
-//                                 //
-/////////////////////////////////////
-
-static int raw_map_x=40,raw_map_z=120;
-
-static int raw_map[40][120]={
-                                {1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1},
-                                {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-                                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,0,1,1,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,1,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,1,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,1,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,1,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0},
-                                {0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0},
-                                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                                {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-                                {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1}
-                            };
-// Definição para tamanho de cada bloco no mapa
-static float size_column = 5.0f;
-/* GLUT callback Handlers */
-// angle of rotation for the camera direction
-float angle=0.0f,angle_y=0.0f;
-// actual vector representing the camera's direction
-float lx=0.64f,lz=-0.76f,ly=0.0f;
-// XZ position of the camera
-float x_global=0.0f,z=0.0f, y_global=1.5f;
-
-// GHS FUNC adptaçao
-void drawCube() {
-    glBegin ( GL_QUADS );
-		// Face frontal
-	    glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2,  size_column/2     );
-		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2,  size_column/2     );
-		glTexCoord2f(size_column/2, size_column/2); glVertex3f(     size_column/2,      size_column/2,  size_column/2     );
-		glTexCoord2f(0.0f         , size_column/2); glVertex3f(-1 * size_column/2,      size_column/2,  size_column/2     );
-		// Face posterior
-		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2, -1 * size_column/2 );
-		glTexCoord2f(size_column/2, size_column/2); glVertex3f(-1 * size_column/2,      size_column/2, -1 * size_column/2 );
-		glTexCoord2f(0.0f         , size_column/2); glVertex3f(     size_column/2,      size_column/2, -1 * size_column/2 );
-		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2, -1 * size_column/2 );
-		// Face superior
-		glTexCoord2f(0.0f         , size_column/2); glVertex3f(-1 * size_column/2,  size_column/2, -1 * size_column/2     );
-		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(-1 * size_column/2,  size_column/2,      size_column/2     );
-		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(     size_column/2,  size_column/2,      size_column/2     );
-		glTexCoord2f(size_column/2, size_column/2); glVertex3f(     size_column/2,  size_column/2, -1 * size_column/2     );
-		// Face inferior
-		glTexCoord2f(size_column/2, size_column/2); glVertex3f(-1 * size_column/2, -1 * size_column/2, -1 * size_column/2 );
-		glTexCoord2f(0.0f         , size_column/2); glVertex3f(     size_column/2, -1 * size_column/2, -1 * size_column/2 );
-		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2,      size_column/2 );
-		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2,      size_column/2 );
-		// Face lateral direita
-		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2, -1 * size_column/2 );
-		glTexCoord2f(size_column/2, size_column/2); glVertex3f(     size_column/2,      size_column/2, -1 * size_column/2 );
-		glTexCoord2f(0.0f         , size_column/2); glVertex3f(     size_column/2,      size_column/2,      size_column/2 );
-		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(     size_column/2, -1 * size_column/2,      size_column/2 );
-		// Face lateral esquerda
-		glTexCoord2f(0.0f         , 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2, -1 * size_column/2 );
-		glTexCoord2f(size_column/2, 0.0f         ); glVertex3f(-1 * size_column/2, -1 * size_column/2,      size_column/2 );
-		glTexCoord2f(size_column/2, size_column/2); glVertex3f(-1 * size_column/2,      size_column/2,      size_column/2 );
-		glTexCoord2f(0.0f         , size_column/2); glVertex3f(-1 * size_column/2,      size_column/2, -1 * size_column/2 );
-	glEnd();
-
-}
-//-------------------------- VISUALIZAR BLOCOS PARA COLISAO --------------------------//
-void draw_map_by_colision(struct LISTA * cubo){
-    struct LISTA * new_cubo = cubo;
-    int position = 1;
-    do{
-                    glPushMatrix();
-                    glTranslatef(new_cubo->x,new_cubo->y,new_cubo->z);
-                    glColor3f(0.0f, 1.0f, 1.0f);
-                    glutSolidCube(size_column);
-                    glPopMatrix();
-                    new_cubo = new_cubo->proximo;
-    }while(new_cubo != NULL);
-	glEnd();
-}
-void drawMap() {
-    if(switch_maps == 1){
-        for(int i = 0; i < raw_map_x; i++)
-            for(int j = 0; j < raw_map_z; j++) {
-                if(raw_map[i][j] == 1){
-                    glPushMatrix();
-                    glColor3f(1.0f, 0.0f, 1.0f);
-                    glTranslatef(j * size_column,size_column/3,i * size_column);
-                    drawCube();
-                    glPopMatrix();
-                }
-            }
-            // //Constroi  Teto
-            //    glPushMatrix();
-            //    glTranslatef(i*size_column,size_column*6,j * size_column);
-            //    drawCube();
-            //    glPopMatrix();
-    }else{
-        draw_map_by_colision(topo_lista->inicio);
-    }
-}
-
-static void resize(int width, int height)
+ int tester =0, testaladopernae = 0, testaladopernad = 0, testaladocorpo = 0; // VARIAVEIS PARA TESTAR SE QUER MEXER PARA OS LADOS
+ bool flag_perna=true;
+ int valor_perna_direita=10,valor_perna_esquerda=-10;
+static void boneco() // DEFINE AS PRIMITICAS PARA O DESNEHO DO BONECO
 {
-    const float ar = (float) width / (float) height;
+   braco1 = glGenLists(1); // ADICIONA NA LISTA A PRIMITIVA BRACO PARA QUE SUAS FILHAS NA PILHA SEJAM ATUALIZADAS AUTOMATICAMENTE
 
-    glViewport(0, 0, width, height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-ar, ar, -1.0, 1.0, 2.0, 100.0);
+   glNewList(braco1, GL_COMPILE); // CRIA NA LISTA
+   glScalef(0.09, 0.28, 0.09); // ESCALA CONFOME O NECESSARIO
+   glutWireCube(2.0); // CHAMA A PRIMITIVA CUBO PARA DESENHAR JA ESCALADO
+   glEndList(); // FECHA A LISTA
 
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity() ;
+
+   busto = glGenLists(1); // CRIA NA LISTA
+   glNewList(busto, GL_COMPILE);
+   glScalef(0.35, 0.525, 0.2); // ESCALA CONFOME O NECESSARIO
+   glutWireCube(2.0); // CHAMA A PRIMITIVA CUBO PARA DESENHAR JA ESCALADO
+   glEndList(); // FECHA A LISTA
+
+   perna = glGenLists(1); // CRIA NA LISTA
+   glNewList(perna, GL_COMPILE);
+   glScalef(0.09, 0.28, 0.09);// ESCALA CONFOME O NECESSARIO
+   glutWireCube(2.0); // CHAMA A PRIMITIVA CUBO PARA DESENHAR JA ESCALADO
+   glEndList(); // FECHA A LISTA
+
 }
 
-static void display(void)
+void init(void)
 {
-    const double t = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
-    const double a = t*90.0;
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	// Reset transformations
-	glLoadIdentity();
-	// Set the camera
-	gluLookAt(	x_global, y_global, z,
-                x_global+lx, y_global+ly,  z+lz,
-                0.0f, y_global,  0.0f);
-
-        // Draw ground
-	glColor3f(0.9f, 0.9f, 0.9f);
-	glBegin(GL_QUADS);
-		glVertex3f(     0, 0,    0);
-		glVertex3f(     0, 0, 1000);
-		glVertex3f(  1000, 0, 1000);
-		glVertex3f(  1000, 0,    0);
-	glEnd();
-    drawMap();
-
-
-
-	glutSwapBuffers();
-
+   boneco();
+   glClearColor(0.68f, 0.85f, 0.9f, 1.0f); // Pinta a tela na cor azul claro
+   glLineWidth(3.0); // define a largura de todas as figuras como 3
+   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // modo de desenho dos poligonos
 }
 
-
-/////////////////////////////////////
-//                                 //
-//            TEXTURA              //
-//                                 //
-/////////////////////////////////////
-// GHS FUNC
-GLuint LoadTexture(const char * filename, int width, int height) {
-
-	GLuint texture;
-	unsigned char * data;
-
-	FILE * file;
-	file = fopen( filename, "rb" );
-	if ( file == NULL ) return 0;
-	data = (unsigned char *)malloc( width * height * 3 );
-	//int size = fseek(file,);
-	fread( data, width * height * 3, 1, file );
-	fclose( file );
-
-	for(int i = 0; i < width * height ; ++i) {
-		int index = i*3;
-		unsigned char B,R;
-		B = data[index];
-		R = data[index+2];
-
-		data[index] = R;
-		data[index+2] = B;
-	}
-
-	glGenTextures( 1, &texture );
-	glBindTexture( GL_TEXTURE_2D, texture );
-	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,GL_MODULATE );
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_NEAREST );
-
-
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_LINEAR );
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,GL_REPEAT );
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,GL_REPEAT );
-	gluBuild2DMipmaps( GL_TEXTURE_2D, 3, width, height,GL_RGB, GL_UNSIGNED_BYTE, data );
-	free( data );
-
-	return texture;
-}
-// GHS FUNC
-void Inicializa (void)
+void display(void)
 {
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	// Habilita a defini��o da cor do material a partir da cor corrente
-	glEnable(GL_COLOR_MATERIAL);
-	//Habilita o uso de ilumina��o
-	glEnable(GL_LIGHTING);
-	// Habilita a luz de n�mero 0
-	glEnable(GL_LIGHT0);
-	// Habilita o depth-buffering
-	glEnable(GL_DEPTH_TEST);
+   glClear (GL_COLOR_BUFFER_BIT); // APAGA A TELA E PINTA CONFORME A COR NO BUFFER
+   glColor3f (0.0, 0.0, 0.0); // COR DO BONECO
+   glLoadIdentity(); // CARREGA A IDENTIDADE
+   glTranslatef(0.0,0.0,-2.0);
 
-	// Inicializa a vari�vel que especifica o �ngulo da proje��o
-	// perspectiva
-	angle=50;
-
-	// Inicializa as vari�veis usadas para alterar a posi��o do
-	// observador virtual
+   // RODA A CAMERA NO EIXO X
+   glRotatef(roda_x,1.0,0.0,0.0);
+   // RODA A CAMERA NO EIXO Y
+   glRotatef(roda_y,0.0,1.0,0.0);
+   // RODA A CAMERA NO EIXO Z
+   glRotatef(roda_z,0.0,0.0,1.0);
 
 
-	idTextura = LoadTexture("C:\\Users\\gustavo.silva\\OneDrive\\tijolos.bmp",128,128);
+   glScalef(1,1,1); // ESCALANDO
 
-	glBindTexture(GL_TEXTURE_2D, idTextura);
+   // INICIO DO DESENHO DO CORPO
 
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-	glEnable(GL_TEXTURE_2D);
+
+   glPushMatrix();
+   if(testaladocorpo == 1) glRotatef(ladocorpo, 0.0, 0.0, 1.0);
+   glCallList(busto); // CHAMA A PRIMITIVA CUBO PARA DESENHAR O OBJETO CORPO
+   glPopMatrix();
+
+   // FIM DO CORPO
+
+   // INICIO DO DESENHO DAS PERNAS
+
+   glPushMatrix();
+   glTranslatef(0.2, -0.85, 0.0); // POSICAO DA PERNA NO UNIVERSO
+
+   glTranslatef(0.0, 0.28, 0.0); // TRANSLADAR PARA ORIGEM PARA ROTACIONAR NA SEQUENCIA
+   if(testaladopernad == 1) glRotatef(ladodireitoperna, 0.0, 1.0, 1.0); // TRANSLADAR PARA ORIGEM PARA ROTACIONAR NA SEQUENCIA
+   else glRotatef(pernadireita, 1.0, 0.0, 0.0); // ROTACIONAR O JOELHO PARA FRENTE CONFORME A VARIAVEL EH SOMADA
+   testaladopernad = 0;
+   glTranslatef(0.0, -0.28, 0.0);
+   glPushMatrix();
+   glCallList(perna); // CHAMA A PRIMITIVA CUBO PARA DESENHAR O OBJETO PERNA
+   glPopMatrix();
+
+   glPushMatrix();
+   glTranslatef(0.0, -0.6, 0.0);
+
+   glTranslatef(0.0, 0.28, 0.0);
+   glRotatef(joelhodireito, 1.0, 0.0, 0.0);
+   glTranslatef(0.0, -0.28, 0.0);
+   glCallList(perna);
+   glPopMatrix();
+   glPopMatrix();
+
+
+   glPushMatrix();
+   glTranslatef(-0.2, -0.85, 0.0); // POSICAO DA PERNA NO UNIVERSO
+
+   glTranslatef(0.0, 0.28, 0.0); // ROTACIONAR NA ORIGEM
+   if(testaladopernae == 1) glRotatef(ladoesquerdoperna, 0.0, 1.0, 1.0); // CONDICAO PARA ROTACIONAR PARA OS LADOS A PERNA
+   else glRotatef(pernaesquerda, 1.0, 0.0, 0.0); // ROTACIONAR A PERNA PARA FRENTE CONFORME A VARIAVEL EH SOMADA
+   testaladopernae = 0; // VARIAVEL PARA TESTAR SOMENTE
+   glTranslatef(0.0, -0.28, 0.0);
+   glPushMatrix();
+   glCallList(perna); // CHAMA PRIMITIVA CUBO PARA DESENHAR O OBJETO PERNA ESQUERDA
+   glPopMatrix();
+
+   glPushMatrix();
+   glTranslatef(0.0, -0.6, 0.0); // POSICAO DO OBJETO JOELHO ESQUERDO  NO UNIVERSO
+
+   glTranslatef(0.0, 0.28, 0.0); // TRANSLADAR PARA ORIGEM PARA ROTACIONAR NA SEQUENCIA
+   glRotatef(joelhoesquerdo, 1.0, 0.0, 0.0); // ROTACIONAR O JOELHO PARA FRENTE CONFORME A VARIAVEL EH SOMADA
+   glTranslatef(0.0, -0.28, 0.0);
+   glCallList(perna); // CHAMA A PRIMITIVA CUBO PARA DESENHAR O OBJETO PERNA
+   glPopMatrix();
+   glPopMatrix();
+
+   // FIM DO DESENHO PERNAS
+
+
+   // INICIO DO DESENHO DA CABECA
+
+   glPushMatrix();
+   glTranslatef(0.0, 0.73, 0.0); // POSICAO NO UNIVERSO PARA DESENHAR
+   glRotatef(cabeca, 0.0, 1.0, 0.0); // ROTACIONAR NO PROPRIO EIXO, (COM A FUNCAO DE OLHAR PARA OS LADOS)
+   glutWireSphere(0.2,100,100); // DESENHA UMA ESFERA COM A FUNCAO DA CABECA DO BONECO
+   glPopMatrix();
+
+   // FIM DESENHAR CABECA
+
+
+   // INICIO DO DESENHO DOS BRACOS
+   glPushMatrix();
+   glTranslatef(-0.45, 0.26, 0.0); // POSICAO DO BRACO NO UNIVERSO
+
+   glTranslatef(0.0, 0.28, 0.0); //  TRANSLADA PARA ORIGEM PARA ROTACIONAR NA SEQUENCIA
+   if (tester ==1) glRotatef(ladobracodireito, 0.0, 1.0, 1.0); // CONDICAO PARA ROTACIONAR PARA OS LADOS CONFORME A VARIAVEL EH SOMADA
+   else glRotatef(pernadireita*0.5, 1.0, 0.0, 0.0); // ROTACIONAR PARA FRENTE CONFORME A VARIAVEL BRACO EH ALTERADA
+   glTranslatef(0.0, -0.28, 0.0);
+   glPushMatrix();
+   glCallList(braco1); // CHAMA A PRIMITIVA PARA DESENHAR NO UNIVERSO
+   glPopMatrix();
+
+   glPushMatrix();
+   glTranslatef(0.0, -0.59, 0.0); // POSICAO DO ANTEBRACO NO UNIVERSO
+
+   glTranslatef(0.0, 0.28, 0.0); //  TRANSLADA PARA ORIGEM PARA ROTACIONAR NA SEQUENCIA
+   glRotatef(antebraco, 1.0, 0.0, 0.0);
+   glTranslatef(0.0, -0.28, 0.0);
+   glCallList(braco1); // CHAMA A PRIMITIVA PARA DESENHAR NO UNIVERSO
+   glPopMatrix();
+   glPopMatrix();
+
+   glPushMatrix();
+   glTranslatef(0.45, 0.26, 0.0); // POSICAO DO BRACO NO UNIVERSO
+
+   glTranslatef(0.0, 0.28, 0.0); //  TRANSLADA PARA ORIGEM PARA ROTACIONAR NA SEQUENCIA
+   if (tester ==1) glRotatef(ladobracoesquerdo, 0.0, 1.0, 1.0); // CONDICAO PARA ROTACIONAR PARA OS LADOS CONFORME A VARIAVEL EH SOMADA
+   else glRotatef(pernaesquerda*0.5, 1.0, .0, 0.0); // ROTACIONAR PARA FRENTE CONFORME A VARIAVEL BRACO EH ALTERADA
+   glTranslatef(0.0, -0.28, 0.0);
+   glPushMatrix();
+   glCallList(braco1); // CHAMA A PRIMITIVA PARA DESENHAR NO UNIVERSO
+   glPopMatrix();
+
+   glPushMatrix();
+   glTranslatef(0.0, -0.59, 0.0);  // POSICAO DO ANTEBRACO NO UNIVERSO
+
+   glTranslatef(0.0, 0.28, 0.0); //  TRANSLADA PARA ORIGEM PARA ROTACIONAR NA SEQUENCIA
+   glRotatef(antebraco, 1.0, 0.0, 0.0);
+   glTranslatef(0.0, -0.28, 0.0);
+   glCallList(braco1); // CHAMA A PRIMITIVA PARA DESENHAR NO UNIVERSO
+   glPopMatrix();
+   glPopMatrix();
+
+
+   glFlush (); // ATUALIZAR DESENHO
 }
 
+///////////////////////////////////////
+////                                 //
+////            TEXTURA              //
+////                                 //
+///////////////////////////////////////
+//
+//GLuint LoadTexture(const char * filename, int width, int height) {
+//
+//	GLuint texture;
+//	unsigned char * data;
+//
+//	FILE * file;
+//	file = fopen( filename, "rb" );
+//	printf("%s",filename);
+//	if ( file == NULL ) return 0;
+//	data = (unsigned char *)malloc( width * height * 3 );
+//	//int size = fseek(file,);
+//	fread( data, width * height * 3, 1, file );
+//	fclose( file );
+//
+//	for(int i = 0; i < width * height ; ++i) {
+//		int index = i*3;
+//		unsigned char B,R;
+//		B = data[index];
+//		R = data[index+2];
+//
+//		data[index] = R;
+//		data[index+2] = B;
+//	}
+//
+//	glGenTextures( 1, &texture );
+//	glBindTexture( GL_TEXTURE_2D, texture );
+//	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,GL_MODULATE );
+//	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_NEAREST );
+//
+//
+//	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_LINEAR );
+//	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,GL_REPEAT );
+//	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,GL_REPEAT );
+//	gluBuild2DMipmaps( GL_TEXTURE_2D, 3, width, height,GL_RGB, GL_UNSIGNED_BYTE, data );
+//	free( data );
+//
+//	return texture;
+//}
+//float angle;
+//void Inicializa (void)
+//{
+//	glEnable(GL_COLOR_MATERIAL);
+//	//Habilita o uso de ilumina��o
+//	glEnable(GL_LIGHTING);
+//	// Habilita a luz de n�mero 0
+//	glEnable(GL_LIGHT0);
+//	// Habilita o depth-buffering
+//	glEnable(GL_DEPTH_TEST);
+//
+//	// Inicializa a vari�vel que especifica o �ngulo da proje��o
+//	// perspectiva
+//	angle=50;
+//
+//	// Inicializa as vari�veis usadas para alterar a posi��o do
+//	// observador virtual
+//
+//
+//	idTextura = LoadTexture("C:\\Users\\gustavo.silva\\Desktop\\Projeto\\tijolos.bmp",128,128);
+//
+//	glBindTexture(GL_TEXTURE_2D, idTextura);
+//
+//	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+//	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+//	glEnable(GL_TEXTURE_2D);
+//}
 
-/////////////////////////////////////
-//                                 //
-//            TECLADO              //
-//                                 //
-/////////////////////////////////////
 
-static void key(unsigned char key, int x, int y)
+void reshape (int w, int h) // BIBLOTECA PADRAO DA OPENGL E GLUT, SEM MUITAS ALTERACOES AQUI
 {
+   glViewport (0, 0, (GLsizei) w, (GLsizei) h);
+   glMatrixMode (GL_PROJECTION);
+   glLoadIdentity ();
+   glOrtho (-2.0, 2.0, -2.0, 2.0, 0.0, 5.0); // DEFINE AS COORDENADAS EM 3D
+   glMatrixMode (GL_MODELVIEW);
+}
+void keyboard(unsigned char key, int x, int y) // FAZ O SCANNER DO TECLADO E DAS TECLAS PRESSIONADAS PELO USUARIO
+{
+//    if(key=='w'){
+//        printf("\n Antes \n");
+//                printf(" PernaDireita   %f\nJoelhoDireito   %f\n",pernadireita,joelhodireito);
+//                printf(" PernaEsquerda   %f\nJoelhoEsquerda   %f\n",pernaesquerda,joelhoesquerdo);
+//
+//                joelhodireito = joelhodireito + 5.0;
+//
+//                int cont;
+//                cont=0;
+//                while(cont<3){
+//
+//                    cont++;
+//                    pernadireita = pernadireita - 10.0;
+//Sleep(1000);
+//                    joelhodireito = joelhodireito + 12.0;
+//Sleep(1000);
+//                    joelhoesquerdo = joelhoesquerdo + 5.0;
+//                }
+//
+//                Sleep(100);
+//                joelhodireito = joelhodireito - 5.0;
+//                Sleep(500);
+//                glutMainLoop();
+//
+//             printf("\n Depois \n");
+//             printf(" PernaDireita   %f\nJoelhoDireito   %f\n",pernadireita,joelhodireito);
+//             printf(" PernaEsquerda   %f\nJoelhoEsquerda   %f\n",pernaesquerda,joelhoesquerdo);
+//
+//
+//    }
 
-float fraction = 0.1f;
-//      //Posições
-//printf("\n===========================\n         POSICOES TECLADO\ny_global= %f\nx_global= %f\nz = %f\n",y_global,x_global,z);
-//            printf("\n***************************\n         CAMERA TECLADO\nly= %f\nlx = %f\nlz = %f\n",ly,lx,lz);
-	switch (key) {// Função Teclas
-		case 'q' ://Camera para Esquerda
-			angle -= 0.05f;
-			lx = sin(angle);
-			lz = -cos(angle);
-			break;
-		case 'e' ://Camera para Direita
-			angle += 0.05f;
-			lx = sin(angle);
-			lz = -cos(angle);
-			break;
-		case 'w' ://Move a camera para frente
-			x += lx;
-			z += lz;
-			x_global += lx;
-			break;
-		case 's' ://Move a camera para tras
-			x -= lx;
-			z -= lz;
-			x_global -= lx;
-			break;
-        case 'd'://Move a camera para direita
-            if (angle == 0.0f) {
-                x += cos(angle);
-                x_global += cos(angle);
-                z += -sin(angle);
-			}else{
-                x -= cos(angle);
-                x_global -= cos(angle);
-                z -= -sin(angle);
-			};
-			break;
-            case 'h': deltaAngle2+=0.1f;
-            ly = sin(angle2 + deltaAngle2);
-            break;
-            case 'b': deltaAngle2 -= 0.1f;
-             ly = sin(angle2 + deltaAngle2);
-             break;
-        case 'a'://Move a camera para esquerda
-            if (angle == 0.0f) {
-                x -= cos(angle);
-                x_global -= cos(angle);
-                z -= -sin(angle);
-			}else{
-                x += cos(angle);
-                x_global += cos(angle);
-                z += -sin(angle);
-			}
-			break;
 
-        case ' '://Move a camera para cima
-            y_global += 1.0f;
-            break;
+  switch (key) { // VERIFICA TODAS AS POSSIBILIDADES DE CLIQUE E REALIZA A ACAO PEDIDA CONFORME O MANUAL NO CONSOLE
 
-        case 'f'://Move a camera para baixo
-             if (y_global >= 2.0f)
-                 y_global -= 1.0f;
-            break;
+        case 'w':
 
-        case 'i':// seta para inicio mapa
-                y_global= 4.00f;
-                x_global= 6.74f;
-                z = 293.61f;
-            break;
 
-        case 'o':// seta para Fim mapa
-            y_global= 4.00f;
-            x_global= 190.34f;
-            z = 412.54f;
-            break;
-        case 'p':// seta para ponto "aleatorio" do mapa
-            y_global = 20.0f;
-            x_global = 55.55f;
-            z = 435.08f;
-            break;
-
-        case 'x': //fecha o jogo
-           exit(0);
-            break;
-        case 'k':
-            if (switch_maps == 0){
-                switch_maps = 1;
-            }else{
-                switch_maps = 0;
-            }
-            printf("\n >>> switch_maps: %.2f ",switch_maps);
-            break;
-
-	}
-	if(hasColided(x_global,z,y_global,topo_lista->inicio,size_column) == 1){
-        switch (key) {// Função Teclas
-
-		case 'w' ://Move a camera para frente
-			x -= lx*2;
-			z -= lz*2;
-			x_global -= lx*2;
-			break;
-		case 's' ://Move a camera para tras
-			x += lx*2;
-			z += lz*2;
-			x_global += lx*2;
-			break;
-        case ' '://Move a camera para cima
-            y_global -= 1.0f*2;
-            break;
-
-        case 'f'://Move a camera para baixo
-                 y_global += 1.0f*2;
-            break;
+        printf(" Pernadireita   %f\nJoelhodireito   %f\n",pernadireita,joelhodireito);
+        if (pernadireita >= 60.0 & flag_perna){
+            valor_perna_direita=-10;
         }
-    }
-    glutPostRedisplay();
-}
 
-/////////////////////////////////////
-//                                 //
-//             MOUSE               //
-//                                 //
-/////////////////////////////////////
-void mouseMove(int x, int y) {
+        if(pernadireita <= -10.0){
+            valor_perna_direita=10;
+        }
+            pernadireita += valor_perna_direita;
+            joelhodireito -= valor_perna_direita;
+            pernaesquerda -= valor_perna_direita;
+            joelhoesquerdo += valor_perna_direita;
 
-	if (xOrigin >= 0 &&yOrigin>=0) {
+        break;
 
-		deltaAngle = (x - xOrigin) * 0.001f;
-		deltaAngle2=(y-yOrigin)* 0.001f;
-		lx = sin(angle + deltaAngle);
-		lz = -cos(angle + deltaAngle);
-		ly = -sin(angle2 + deltaAngle2);
-	}
-}
-
-void mouseButton(int button, int state, int x, int y) {
-
-	if (button == GLUT_LEFT_BUTTON) {
-
-		if (state == GLUT_UP) {
-			angle += deltaAngle;
-			xOrigin = -1;
-			yOrigin = -1;
-			angle2 += deltaAngle2;
-		}
-		else {
-			xOrigin = x;
-			yOrigin = y;
-		}
-	}
-}
-// ILUMINAÇÃO
-const GLfloat light_ambient[]  = { 2.0f, 2.0f, 2.0f, 1.0f };
-const GLfloat light_diffuse[]  = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat light_position[] = { 2.0f, 5.0f, 5.0f, 0.0f };
-
-static void idle(void)
-{
-    glutPostRedisplay();
-}
-
-int main(int argc, char *argv[])
-{
-    topo_lista = initTopo(topo_lista);
-        for(int i = 0; i < raw_map_x; i++)
-		for(int j = 0; j < raw_map_z; j++) {
-            if(raw_map[i][j] == 1){
-                empilha(
-                            j * size_column, size_column/2, i * size_column,
-                            topo_lista
-                        );
+        case 's':
+            printf(" Pernadireita   %f\nJoelhodireito   %f\n",pernadireita,joelhodireito);
+            if (pernadireita >= 60.0 & flag_perna){
+                valor_perna_direita=10;
             }
 
+            if(pernadireita <= -10.0){
+                valor_perna_direita=-10;
+            }
+                pernadireita -= valor_perna_direita;
+                joelhodireito += valor_perna_direita;
+                pernaesquerda += valor_perna_direita;
+                joelhoesquerdo -= valor_perna_direita;
+        break;
+
+        case 'r':
+
+        for(int cont=0;cont<3;cont++){
+        pernaesquerda = pernaesquerda - 10.0;
+        if (pernaesquerda < -90.0) pernaesquerda = -90.0;
+
+        joelhoesquerdo = joelhoesquerdo + 10.0;
+        if (joelhoesquerdo < -50.0) joelhoesquerdo = -50.0;
+
+        joelhodireito = joelhodireito + 5.0;
+        if (joelhodireito < -50.0) joelhodireito = -50.0;
         }
-        //show(topo_lista->inicio);
 
 
 
-    //
-    glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
-	glutInitWindowPosition(100,100);
-	glutInitWindowSize(1000,700);
-	glutCreateWindow("Labrinto");
-    //glutFullScreen();
+        printf(" Pernadireita   %f\nJoelhodireito   %f\n",pernadireita,joelhodireito);
+        break;
 
-    glutReshapeFunc(resize);
-    glutDisplayFunc(display);
-    glutKeyboardFunc(key);
-    glutIdleFunc(idle);
+      case '2':
+        antebraco = antebraco - 10.0;
+        tester = 0;
 
-	glutMouseFunc(mouseButton);
-	glutMotionFunc(mouseMove);
+        if (antebraco < -90.0) antebraco = -90.0;
+        break;
 
-    glClearColor(1,1,1,1);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+      case '1':
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+        braco = braco - 10.0;
+        tester =0;
 
-    glEnable(GL_LIGHT0);
-    glEnable(GL_NORMALIZE);
-    glEnable(GL_COLOR_MATERIAL);
-    glEnable(GL_LIGHTING);
+        if (braco < -90.0) braco = -90.0;
+        break;
 
-    glLightfv(GL_LIGHT0, GL_AMBIENT,  light_ambient);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE,  light_diffuse);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+      case '3':
 
-    Inicializa();
+        cabeca = cabeca + 10.0;
+        break;
 
-    glutMainLoop();
-    return EXIT_SUCCESS;
+      case '4':
+
+        pernaesquerda = pernaesquerda - 10.0;
+
+        if (pernaesquerda < -90.0) pernaesquerda = -90.0;
+        break;
+
+      case '5':
+
+        joelhoesquerdo = joelhoesquerdo + 10.0;
+
+        if (joelhoesquerdo < -50.0) joelhoesquerdo = -50.0;
+        break;
+
+     case '6':
+
+        pernadireita = pernadireita - 10.0;
+
+        if (pernadireita < -90.0) pernadireita = -90.0;
+        break;
+
+      case '7':
+
+        joelhodireito = joelhodireito - 10.0;
+
+        if (joelhodireito < -50.0) joelhodireito = -50.0;
+        break;
+
+      case '8':
+
+        ladobracodireito = ladobracodireito - 10.0;
+        tester = 1;
+
+        if (ladobracodireito < -50.0) ladobracodireito = -50.0;
+        break;
+
+      case '9':
+
+        ladobracoesquerdo = ladobracoesquerdo + 10.0;
+        tester = 1;
+
+        if (ladobracoesquerdo > 50.0) ladobracoesquerdo = 50.0;
+        break;
+
+      case 'p':
+
+        ladoesquerdoperna = ladoesquerdoperna - 10.0;
+        testaladopernae = 1;
+
+        if (ladoesquerdoperna < -50.0) ladoesquerdoperna = -50.0;
+
+        break;
+
+      case 't':
+
+        ladodireitoperna = ladodireitoperna + 10.0;
+        testaladopernad = 1;
+
+        if (ladodireitoperna > 50.0) ladodireitoperna = 50.0;
+        break;
+
+      case 'x':
+
+	     roda_x = roda_x + 10.0;
+        break;
+
+      case 'y':
+
+	     roda_y = roda_y + 10.0;
+        break;
+
+      case 'z':
+
+	     roda_z = roda_z + 10.0;
+        break;
+
+      case 27:
+         exit(0);
+         return;
+   }
+   glutPostRedisplay(); // CHAMA PARA ATUALIZAR O DESENHO
+}
+
+
+
+int main(int argc, char** argv)
+{
+    setlocale(LC_ALL, "Portuguese"); // SETA COMO PORTUGUES PARA ACENTO
+
+    // MENU DE NAVEGACAO
+
+    printf("MENU NAVEGAÇÃO\n");
+    printf("TECLAS PARA NAVEGAÇÃO\n");
+    printf("[x] [y] [z] - ALTERAM A VISÃO DO USUÁRIO CONFORME OS ÂNGULOS NO PLANO CARTESIANO\n");
+    printf("[1] - MOVIMENTA OS BRAÇOS PARA FRENTE  \n");
+    printf("[2] - MOVIMENTA OS ANTEBRAÇOS PARA FRENTE  \n");
+    printf("[4] [6] - MOVIMENTAM AS PERNAS PARA FRENTE  \n");
+    printf("[5] [7] - MOVIMENTAM OS JOELHOS PARA FRENTE  \n");
+    printf("[8] [9] - MOVIMENTAM OS BRAÇOS PARA OS LADOS  \n");
+    printf("[r] [t] - MOVIMENTAM AS PERNAS PARA OS LADOS  \n");
+
+// COMANDOS PADROES DA OPENGL E GLUT
+   glutInit(&argc, argv);
+   glutInitDisplayMode (GLUT_SINGLE | GLUT_RGB);
+  // TAMANHO DA JANELA
+   glutInitWindowSize (700, 700);
+   glutInitWindowPosition (100, 100);
+   glutCreateWindow (argv[0]);
+
+ //INICIA
+   init ();
+
+   glutDisplayFunc(display); // CHAMA O DESENHO
+   glutReshapeFunc(reshape); // CHAMA PARA ATUALIZAR
+   glutKeyboardFunc(keyboard); // CHAMA O TECLADO
+//   Inicializa();
+   glutMainLoop();
+   return 0;
 }
