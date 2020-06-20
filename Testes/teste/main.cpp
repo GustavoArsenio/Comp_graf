@@ -30,6 +30,9 @@ GLuint braco1, busto, cabeca1, perna; // VARIAVEIS PARA ALTERAR A MUDANCA DAS RO
  int tester =0, testaladopernae = 0, testaladopernad = 0, testaladocorpo = 0; // VARIAVEIS PARA TESTAR SE QUER MEXER PARA OS LADOS
  bool flag_perna=true;
  int valor_perna_direita=10,valor_perna_esquerda=-10;
+ GLfloat pernadireita_inicial = pernadireita,joelhodireito_inicial = joelhodireito,pernaesquerda_inicial = pernaesquerda,joelhoesquerdo_inicial = joelhoesquerdo; // movimento do boneco
+
+
 static void boneco() // DEFINE AS PRIMITICAS PARA O DESNEHO DO BONECO
 {
    braco1 = glGenLists(1); // ADICIONA NA LISTA A PRIMITIVA BRACO PARA QUE SUAS FILHAS NA PILHA SEJAM ATUALIZADAS AUTOMATICAMENTE
@@ -96,7 +99,7 @@ void display(void)
 
    glTranslatef(0.0, 0.28, 0.0); // TRANSLADAR PARA ORIGEM PARA ROTACIONAR NA SEQUENCIA
    if(testaladopernad == 1) glRotatef(ladodireitoperna, 0.0, 1.0, 1.0); // TRANSLADAR PARA ORIGEM PARA ROTACIONAR NA SEQUENCIA
-   else glRotatef(pernadireita, 1.0, 0.0, 0.0); // ROTACIONAR O JOELHO PARA FRENTE CONFORME A VARIAVEL EH SOMADA
+   else glRotatef(pernadireita, 1.0, 0.0, 0.0); // ROTACIONAR O JOELHO PARA FRENTE CONFORME A VARIAVEL EH SOMADA // Movimento do boneco
    testaladopernad = 0;
    glTranslatef(0.0, -0.28, 0.0);
    glPushMatrix();
@@ -119,7 +122,7 @@ void display(void)
 
    glTranslatef(0.0, 0.28, 0.0); // ROTACIONAR NA ORIGEM
    if(testaladopernae == 1) glRotatef(ladoesquerdoperna, 0.0, 1.0, 1.0); // CONDICAO PARA ROTACIONAR PARA OS LADOS A PERNA
-   else glRotatef(pernaesquerda, 1.0, 0.0, 0.0); // ROTACIONAR A PERNA PARA FRENTE CONFORME A VARIAVEL EH SOMADA
+   else glRotatef(pernaesquerda, 1.0, 0.0, 0.0); // ROTACIONAR A PERNA PARA FRENTE CONFORME A VARIAVEL EH SOMADA // Movimento do boneco
    testaladopernae = 0; // VARIAVEL PARA TESTAR SOMENTE
    glTranslatef(0.0, -0.28, 0.0);
    glPushMatrix();
@@ -313,8 +316,33 @@ void keyboard(unsigned char key, int x, int y) // FAZ O SCANNER DO TECLADO E DAS
 
 
   switch (key) { // VERIFICA TODAS AS POSSIBILIDADES DE CLIQUE E REALIZA A ACAO PEDIDA CONFORME O MANUAL NO CONSOLE
-
-        case 'w':
+        case 'k':
+            if(pernadireita_inicial > pernadireita){
+                pernadireita+=1;
+            }
+            else if(pernadireita_inicial < pernadireita ){
+                pernadireita-=1;
+            }
+            if(joelhodireito_inicial > joelhodireito){
+                joelhodireito+=1;
+            }
+            else if(joelhodireito_inicial < joelhodireito ){
+                joelhodireito-=1;
+            }
+            if(pernaesquerda_inicial > pernaesquerda){
+                pernaesquerda+=1;
+            }
+            else if(pernaesquerda_inicial < pernaesquerda ){
+                pernaesquerda-=1;
+            }
+            if(joelhoesquerdo_inicial > joelhoesquerdo){
+                joelhoesquerdo+=1;
+            }
+            else if(joelhoesquerdo_inicial < joelhoesquerdo ){
+                joelhoesquerdo-=1;
+            }
+            break;
+        case 'w':// Movimento do boneco
 
 
         printf(" Pernadireita   %f\nJoelhodireito   %f\n",pernadireita,joelhodireito);
@@ -332,7 +360,7 @@ void keyboard(unsigned char key, int x, int y) // FAZ O SCANNER DO TECLADO E DAS
 
         break;
 
-        case 's':
+        case 's':// Movimento do boneco
             printf(" Pernadireita   %f\nJoelhodireito   %f\n",pernadireita,joelhodireito);
             if (pernadireita >= 60.0 & flag_perna){
                 valor_perna_direita=10;
@@ -465,6 +493,7 @@ void keyboard(unsigned char key, int x, int y) // FAZ O SCANNER DO TECLADO E DAS
          exit(0);
          return;
    }
+   printf("\n\n >>> x %.2f | y %.2f | z %.2f",roda_x,roda_y,roda_z);
    glutPostRedisplay(); // CHAMA PARA ATUALIZAR O DESENHO
 }
 
@@ -473,7 +502,6 @@ void keyboard(unsigned char key, int x, int y) // FAZ O SCANNER DO TECLADO E DAS
 int main(int argc, char** argv)
 {
     setlocale(LC_ALL, "Portuguese"); // SETA COMO PORTUGUES PARA ACENTO
-
     // MENU DE NAVEGACAO
 
     printf("MENU NAVEGAÇÃO\n");
