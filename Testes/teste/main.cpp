@@ -501,6 +501,7 @@ void keyboard(unsigned char key, int x, int y) // FAZ O SCANNER DO TECLADO E DAS
 
 int main(int argc, char** argv)
 {
+    PlaySound(TEXT("D:\\projetos_git\\Comp_graf\\Testes\\teste\\song.wav"),NULL,SND_SYNC); // movimento do boneco - Musica
     setlocale(LC_ALL, "Portuguese"); // SETA COMO PORTUGUES PARA ACENTO
     // MENU DE NAVEGACAO
 
