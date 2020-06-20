@@ -83,7 +83,8 @@ int hasColided(float x,float z,float y,struct LISTA *cubo,float size_column){
     }else if( isIn( x, z, y, cubo, size_column ) == 1){
         printf("\n#=======================================#\n");
         printf("# EM X: %.2f,%.2f,%.2f\n", cubo->x,x,cubo->x);
-        printf("# EM Y: %.2f,%.2f,%.2f\n", cubo->z,z,cubo->z);
+        printf("# EM Z: %.2f,%.2f,%.2f\n", cubo->z,z,cubo->z);
+        printf("# EM Y: %.2f,%.2f,%.2f\n", cubo->y,y,cubo->y);
         printf("#=======================================#\n");
 
         return 1;
@@ -533,9 +534,9 @@ float fraction = 0.1f;
             break;
 
         case 'i':// seta para inicio mapa
-                y_global= 4.00f;
-                x_global= 6.74f;
-                z = 293.61f;
+                y_global= 2.0f;
+                x_global= 297.0f;
+                z = 5.0f;
             break;
 
         case 'o':// seta para Fim mapa
