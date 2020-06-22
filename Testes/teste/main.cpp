@@ -42,8 +42,26 @@ float deltaMove = 0;
 int xOrigin = -1;
 int yOrigin = -1;
 float angle2 = 0.0f;
+float y_global= 5.00f;
+float x_global= 422.65f;
+float z = 188.35f;
+float switch_maps=1;
 
-float switch_maps=0;
+//minimap Configs
+
+ int subWindow2;
+ int mainWindow;
+ int subWindow3;
+ int subWindow1;
+ int border = 6;
+ int xMiniMap;
+ int yMiniMap;
+ int zMiniMap;
+
+  // width and height of the window
+
+ int h,w;
+
 
 //---------------- Estruturas para colisão ----------------//
 struct LISTA{
@@ -271,7 +289,78 @@ float angle=0.0f,angle_y=0.0f;
 // actual vector representing the camera's direction
 float lx=0.64f,lz=-0.76f,ly=0.0f;
 // XZ position of the camera
-float x_global=0.0f,z=0.0f, y_global=1.5f;
+
+
+/////////////////////////////////////
+//                                 //
+//            TEXTURA              //
+//                                 //
+/////////////////////////////////////
+// GHS FUNC
+GLuint LoadTexture(const char * filename, int width, int height) {
+
+	GLuint texture;
+	unsigned char * data;
+
+	FILE * file;
+	file = fopen( filename, "rb" );
+	if ( file == NULL ) return 0;
+	data = (unsigned char *)malloc( width * height * 3 );
+	//int size = fseek(file,);
+	fread( data, width * height * 3, 1, file );
+	fclose( file );
+
+	for(int i = 0; i < width * height ; ++i) {
+		int index = i*3;
+		unsigned char B,R;
+		B = data[index];
+		R = data[index+2];
+
+		data[index] = R;
+		data[index+2] = B;
+	}
+
+	glGenTextures( 1, &texture );
+	glBindTexture( GL_TEXTURE_2D, texture );
+	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,GL_MODULATE );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_NEAREST );
+
+
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_LINEAR );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,GL_REPEAT );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,GL_REPEAT );
+	gluBuild2DMipmaps( GL_TEXTURE_2D, 3, width, height,GL_RGB, GL_UNSIGNED_BYTE, data );
+	free( data );
+
+	return texture;
+}
+
+// GHS FUNC
+
+
+
+
+
+
+void Inicializa (void)
+{
+
+	// Inicializa a vari�vel que especifica o �ngulo da proje��o
+	// perspectiva
+	angle=50;
+
+	// Inicializa as vari�veis usadas para alterar a posi��o do
+	// observador virtual
+
+    idTextura = LoadTexture("C:\\Users\\gustavo.silva.DESKTOP-62LR2B8\\Desktop\\teste\\tijolos.bmp",128,128);
+
+  	glBindTexture(GL_TEXTURE_2D, idTextura);
+
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+	glEnable(GL_TEXTURE_2D);
+}
+
 
 // GHS FUNC adptaçao
 void drawCube() {
@@ -323,6 +412,20 @@ void draw_map_by_colision(struct LISTA * cubo){
     }while(new_cubo != NULL);
 	glEnd();
 }
+
+void drawTeto() {
+
+        for(int i = 0; i < raw_map_x; i++)
+            for(int j = 0; j < raw_map_z; j++) {
+                                       //Constroi  Teto
+              glPushMatrix();
+                    glTranslatef(j * size_column,size_column*2+(size_column/3),i * size_column);
+                    drawCube();
+                    glPopMatrix();
+
+            }
+}
+
 void drawMap() {
     if(switch_maps == 1){
         for(int i = 0; i < raw_map_x; i++)
@@ -333,157 +436,27 @@ void drawMap() {
                     drawCube();
                     glPopMatrix();
                 }
+                if(raw_map[i][j] == 1){
+                    glPushMatrix();
+                    glTranslatef(j * size_column,size_column+(size_column/3),i * size_column);
+                    drawCube();
+                    glPopMatrix();
+
+                }
+                             //Constroi  Teto
+
+
+
             }
-            // //Constroi  Teto
-            //    glPushMatrix();
-            //    glTranslatef(i*size_column,size_column*6,j * size_column);
-            //    drawCube();
-            //    glPopMatrix();
     }else{
         draw_map_by_colision(topo_lista->inicio);
     }
-}
-
-static void resize(int width, int height)
-{
-    const float ar = (float) width / (float) height;
-
-    glViewport(0, 0, width, height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-ar, ar, -1.0, 1.0, 2.0, 100.0);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity() ;
-}
-
-static void display(void)
-{
-    const double t = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
-    const double a = t*90.0;
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	// Reset transformations
-	glLoadIdentity();
-	// Set the camera
-	gluLookAt(	x_global, y_global, z,
-                x_global+lx, y_global+ly,  z+lz,
-                0.0f, y_global,  0.0f);
-
-        // Draw ground
-	glColor3f(0.9f, 0.9f, 0.9f);
-    glBegin(GL_QUADS);
-        glVertex3f( -1000, 0, -1000);
-        glVertex3f( -1000, 0,  1000);
-        glVertex3f(  1000, 0,  1000);
-        glVertex3f(  1000, 0, -1000);
-    glEnd();
-    drawMap();
 
 
-
-	glutSwapBuffers();
 
 }
 
-void setIlumination(void)
-{
-    GLfloat ambientLight[] = {0.2, 0.2, 0.2, 1.0};
-    GLfloat diffyseLight[] = {0.7, 0.7, 0.7, 1.0};  // "cor"
-    GLfloat specularLight[] = {1.0, 1.0, 1.0, 1.0}; // "brilho"
-    GLfloat positionLight[] = {200.0, 200.0, 50.0, 1.0};
 
-    // Capacidade de brilho do material
-    GLfloat specular[] = {1.0, 1.0, 1.0, 1.0};
-    GLint shininess = 60;
-
-    // Define a refletância do material
-    glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
-    // Define a concentração do brilho
-    glMateriali(GL_FRONT, GL_SHININESS, shininess);
-
-    // Ativa o uso da luz ambiente
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientLight);
-
-    // Define os parâmetros da luz de número 0
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffyseLight);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
-    glLightfv(GL_LIGHT0, GL_POSITION, positionLight);
-}
-/////////////////////////////////////
-//                                 //
-//            TEXTURA              //
-//                                 //
-/////////////////////////////////////
-// GHS FUNC
-GLuint LoadTexture(const char * filename, int width, int height) {
-
-	GLuint texture;
-	unsigned char * data;
-
-	FILE * file;
-	file = fopen( filename, "rb" );
-	if ( file == NULL ) return 0;
-	data = (unsigned char *)malloc( width * height * 3 );
-	//int size = fseek(file,);
-	fread( data, width * height * 3, 1, file );
-	fclose( file );
-
-	for(int i = 0; i < width * height ; ++i) {
-		int index = i*3;
-		unsigned char B,R;
-		B = data[index];
-		R = data[index+2];
-
-		data[index] = R;
-		data[index+2] = B;
-	}
-
-	glGenTextures( 1, &texture );
-	glBindTexture( GL_TEXTURE_2D, texture );
-	glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,GL_MODULATE );
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_NEAREST );
-
-
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_LINEAR );
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,GL_REPEAT );
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,GL_REPEAT );
-	gluBuild2DMipmaps( GL_TEXTURE_2D, 3, width, height,GL_RGB, GL_UNSIGNED_BYTE, data );
-	free( data );
-
-	return texture;
-}
-// GHS FUNC
-void Inicializa (void)
-{
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	// Habilita a defini��o da cor do material a partir da cor corrente
-	glEnable(GL_COLOR_MATERIAL);
-	//Habilita o uso de ilumina��o
-	glEnable(GL_LIGHTING);
-	// Habilita a luz de n�mero 0
-	glEnable(GL_LIGHT0);
-	// Habilita o depth-buffering
-	glEnable(GL_DEPTH_TEST);
-
-	// Inicializa a vari�vel que especifica o �ngulo da proje��o
-	// perspectiva
-	angle=50;
-
-	// Inicializa as vari�veis usadas para alterar a posi��o do
-	// observador virtual
-
-
-	idTextura = LoadTexture("D:\\projetos_git\\Comp_graf\\Testes\\teste\\tijolos.bmp",128,128);
-
-	glBindTexture(GL_TEXTURE_2D, idTextura);
-
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-	glEnable(GL_TEXTURE_2D);
-}
 
 
 /////////////////////////////////////
@@ -520,16 +493,7 @@ printf("\n***************************\n         CAMERA TECLADO\nly= %f\nlx = %f\
 			z -= lz;
 			x_global -= lx;
 			break;
-        case 'd'://Move a camera para direita
-            if (angle == 0.0f) {
-                x += cos(angle);
-                x_global += cos(angle);
-                z += -sin(angle);
-			}else{
-                x -= cos(angle);
-                x_global -= cos(angle);
-                z -= -sin(angle);
-			};
+
 			break;
             case 'h': deltaAngle2+=0.1f;
             ly = sin(angle2 + deltaAngle2);
@@ -537,17 +501,6 @@ printf("\n***************************\n         CAMERA TECLADO\nly= %f\nlx = %f\
             case 'b': deltaAngle2 -= 0.1f;
              ly = sin(angle2 + deltaAngle2);
              break;
-        case 'a'://Move a camera para esquerda
-            if (angle == 0.0f) {
-                x -= cos(angle);
-                x_global -= cos(angle);
-                z -= -sin(angle);
-			}else{
-                x += cos(angle);
-                x_global += cos(angle);
-                z += -sin(angle);
-			}
-			break;
 
         case ' '://Move a camera para cima
             y_global += 1.0f;
@@ -651,6 +604,234 @@ static void idle(void)
     glutPostRedisplay();
 }
 
+
+//MINIMAP
+
+  void init() {
+
+            glClearColor(0.0, 0.0, 0.0, 0.0);
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_CULL_FACE);
+
+
+
+
+	// Inicializa a vari�vel que especifica o �ngulo da proje��o
+	// perspectiva
+	angle=50;
+
+	// Inicializa as vari�veis usadas para alterar a posi��o do
+	// observador virtual
+
+    idTextura = LoadTexture("D:\\projetos_git\\Comp_graf\\Testes\\teste\\tijolos.bmp",128,128);
+
+  	glBindTexture(GL_TEXTURE_2D, idTextura);
+
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+	glEnable(GL_TEXTURE_2D);
+        }
+
+
+   void renderScene() {
+            glutSetWindow(mainWindow);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glutSwapBuffers();
+            init();
+        }
+
+
+ // Display func for sub window 2
+
+        void renderScenesw1 (){
+
+      glutSetWindow(subWindow2);
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glLoadIdentity();
+                        gluLookAt(	x_global, y_global, z,
+                        x_global, y_global,  z,
+                        lx, 0,  lz);
+
+            // Draw red cone at the location of the main camera
+            glPushMatrix();
+            glColor3f(0.9f,0.9f,0.9f);
+            glTranslatef(xMiniMap,yMiniMap,zMiniMap);
+            glRotatef(180-(angle+deltaAngle)*180.0/3.14,0.0,1.0,0.0);
+            glutSolidCone(0.2,0.8f,4,4);
+            glPopMatrix();
+             glBegin(GL_QUADS);
+                glVertex3f( -1000, 0, -1000);
+                glVertex3f( -1000, 0,  1000);
+                glVertex3f(  1000, 0,  1000);
+                glVertex3f(  1000, 0, -1000);
+            glEnd();
+
+            drawMap();
+            glutSwapBuffers();
+
+
+        }
+
+        void renderScenesw2() {
+
+            glutSetWindow(subWindow2);
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glLoadIdentity();
+                        gluLookAt(	x_global, y_global+15, z,
+                        x_global, y_global,  z,
+                        lx, 0,  lz);
+
+            // Draw red cone at the location of the main camera
+            glPushMatrix();
+            glColor3f(0.9f,0.9f,0.9f);
+            glTranslatef(xMiniMap,yMiniMap,zMiniMap);
+            glRotatef(180-(angle+deltaAngle)*180.0/3.14,0.0,1.0,0.0);
+            glutSolidCone(0.2,0.8f,4,4);
+            glPopMatrix();
+             glBegin(GL_QUADS);
+                glVertex3f( -1000, 0, -1000);
+                glVertex3f( -1000, 0,  1000);
+                glVertex3f(  1000, 0,  1000);
+                glVertex3f(  1000, 0, -1000);
+            glEnd();
+
+            drawMap();
+            glutSwapBuffers();
+        }
+
+        void renderScenesw3() {
+
+            glutSetWindow(subWindow3);
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glLoadIdentity();
+            gluLookAt(xMiniMap-lz*10 , yMiniMap, zMiniMap+lx*10,
+                  xMiniMap ,yMiniMap ,zMiniMap ,
+                  0.9f,0.9f,0.9f);
+
+            // Draw red cone at the location of the main camera
+            glPushMatrix();
+            glColor3f(1.0,0.0,0.0);
+            glTranslatef(xMiniMap,yMiniMap,zMiniMap);
+            glRotatef(180-(angle+deltaAngle)*180.0/3.14,0.0,1.0,0.0);
+            glutSolidCone(0.2,0.8f,4,4);
+            glPopMatrix();
+
+            drawMap();
+
+            glutSwapBuffers();
+        }
+
+        // Global render func
+        void renderSceneAll() {
+
+            // check for keyboard movement
+            //if (deltaMove) {
+               // computePos(deltaMove);
+              //  glutSetWindow(mainWindow);
+              //  glutPostRedisplay();
+        //    }
+
+
+
+
+
+
+
+            renderScene();
+            renderScenesw1();
+            renderScenesw2();
+
+           // renderScenesw3();
+        }
+
+             void setProjection(int w1, int h1)
+        {
+            float ratio;
+            // Prevent a divide by zero, when window is too short
+            // (you cant make a window of zero width).
+            ratio = 1.0f * w1 / h1;
+            // Reset the coordinate system before modifying
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+
+            // Set the viewport to be the entire window
+                glViewport(0, 0, w1, h1);
+
+            // Set the clipping volume
+            gluPerspective(45,ratio,0.1,1000);
+            glMatrixMode(GL_MODELVIEW);
+        }
+
+
+
+// ILUMINAÇÃO
+const GLfloat light_ambient[]  = { 1.0f, 1.0f, 1.0f, 1.0f };
+const GLfloat light_diffuse[]  = { 1.0f, 1.0f, 1.0f, 1.0f };
+const GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+const GLfloat light_position[] = { 2.0f, 5.0f, 5.0f, 1.0f };
+
+static void resize(int width, int height)
+{
+
+    const float ar = (float) width / (float) height;
+
+    glViewport(0, 0, width, height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-ar, ar, -1.0, 1.0, 2.0, 100.0);
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity() ;
+
+
+            // set subwindow 2 as the active window
+            glutSetWindow(subWindow2);
+            // resize and reposition the sub window
+            glutPositionWindow((width+border)/1.335,border);
+            glutReshapeWindow(width/4-border*3/2, height/4 - border*3/2);
+            setProjection(width/2-border*3/2,height/2 - border*3/2);
+
+}
+
+
+static void display(void)
+{
+    const double t = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
+    const double a = t*90.0;
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// Reset transformations
+	glLoadIdentity();
+	// Set the camera
+	gluLookAt(	x_global, y_global, z,
+                x_global+lx, y_global+ly,  z+lz,
+                0.0f, y_global,  0.0f);
+
+        // Draw ground
+	glColor3f(0.9f, 0.9f, 0.9f);
+    glBegin(GL_QUADS);
+        glVertex3f( -1000, 0, -1000);
+        glVertex3f( -1000, 0,  1000);
+        glVertex3f(  1000, 0,  1000);
+        glVertex3f(  1000, 0, -1000);
+    glEnd();
+    drawMap();
+    init();
+    glutSwapBuffers();
+    renderScenesw2();
+
+    	drawTeto();
+
+
+}
+
 int main(int argc, char *argv[])
 {
  {
@@ -676,16 +857,36 @@ int main(int argc, char *argv[])
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(100,100);
 	glutInitWindowSize(1000,700);
-	glutCreateWindow("Labrinto");
+	mainWindow = glutCreateWindow("Labrinto");
     //glutFullScreen();
 
     glutReshapeFunc(resize);
     glutDisplayFunc(display);
     glutKeyboardFunc(key);
     glutIdleFunc(idle);
-
 	glutPassiveMotionFunc(mouseMove);
 
+	  // sub windows
+    subWindow1 = glutCreateSubWindow(mainWindow, border,border,w-2*border, h/2 - border*3/2);
+    glutDisplayFunc(renderScenesw1);
+    init();
+
+
+    subWindow2 = glutCreateSubWindow(mainWindow, border,(h+border)/2,w/2-border*3/2, h/2 - border*3/2);
+    glutDisplayFunc(renderScenesw2);
+    init();
+
+
+
+    glEnable(GL_LIGHT0);
+    glEnable(GL_NORMALIZE);
+    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_LIGHTING);
+
+    glLightfv(GL_LIGHT0, GL_AMBIENT,  light_ambient);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE,  light_diffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
+    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 
 }
     glClearColor(1,1,1,1);
@@ -694,13 +895,8 @@ int main(int argc, char *argv[])
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-setIlumination();
 
-    glEnable(GL_LIGHT0);
-    glEnable(GL_NORMALIZE);
-    glEnable(GL_COLOR_MATERIAL);
-    glEnable(GL_LIGHTING); //Habilita iluminação
-    Inicializa();
+    init();
 
     glutMainLoop();
     return EXIT_SUCCESS;
